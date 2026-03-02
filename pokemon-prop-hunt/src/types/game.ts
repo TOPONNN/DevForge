@@ -37,11 +37,13 @@ export interface Player {
   isAlive: boolean;
   isCaught: boolean;
   score: number;
+  isBot?: boolean;
 }
 
 export interface RemotePlayer extends Player {
   lastUpdate: number;
   ready: boolean;
+  isBot?: boolean;
 }
 
 export interface ThrowData {
@@ -82,6 +84,17 @@ export interface RoomStatePayload {
   timer: number;
 }
 
+export interface RoomListItem {
+  roomCode: string;
+  roomName: string;
+  channel: number;
+  status: '대기중' | '게임중';
+  current: number;
+  max: number;
+  locked: boolean;
+  mapId: string;
+}
+
 export interface ChatMessage {
   playerId: string;
   playerName: string;
@@ -105,4 +118,16 @@ export type NetworkMessage =
   | { type: 'room_state'; data: RoomStatePayload }
   | { type: 'player_joined'; data: Player }
   | { type: 'player_left'; data: { playerId: string } }
-  | { type: 'error'; data: { message: string } };
+  | { type: 'error'; data: { message: string } }
+  // Lobby & room management
+  | { type: 'list_rooms'; data: { channel: number } }
+  | { type: 'stop_list_rooms'; data: Record<string, never> }
+  | { type: 'create_room'; data: { roomName: string; password?: string; maxPlayers: number; mapId: string; channel: number; playerName: string } }
+  | { type: 'join_room'; data: { roomCode: string; password?: string; playerName: string } }
+  | { type: 'room_list'; data: { rooms: RoomListItem[] } }
+  | { type: 'room_created'; data: { roomCode: string } }
+  // AI bots
+  | { type: 'add_bot'; data: Record<string, never> }
+  | { type: 'remove_bot'; data: { botId: string } }
+  | { type: 'bot_added'; data: { botId: string; botName: string } }
+  | { type: 'bot_removed'; data: { botId: string } };

@@ -1,7 +1,11 @@
 const { WebSocketServer } = require('ws');
 
 const PORT = 3001;
-const MAX_PLAYERS = 8;
+const DEFAULT_MAX_PLAYERS = 8;
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 12;
+const DEFAULT_ROOM_NAME = '포켓몬 숨바꼭질';
+const DEFAULT_MAP_ID = 'nature';
 const PREP_TIME = 15;
 const HUNT_TIME = 180;
 const BASE_RATE = 0.75;
@@ -23,6 +27,7 @@ const speciesStats = {
 
 const rooms = new Map();
 const clients = new Map();
+const lobbyClients = new Map();
 
 const wss = new WebSocketServer({ port: PORT });
 
@@ -30,12 +35,48 @@ function randomRoomCode() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-function ensureRoom(roomCode, hostId) {
+function sanitizeChannel(channel) {
+  const parsed = Number(channel);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 4) {
+    return 1;
+  }
+  return parsed;
+}
+
+function sanitizeMaxPlayers(maxPlayers) {
+  const parsed = Number(maxPlayers);
+  if (!Number.isInteger(parsed)) {
+    return DEFAULT_MAX_PLAYERS;
+  }
+  return Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, parsed));
+}
+
+function sanitizeRoomName(roomName) {
+  const name = String(roomName || '').trim();
+  return name ? name.slice(0, 30) : DEFAULT_ROOM_NAME;
+}
+
+function sanitizePassword(password) {
+  const value = String(password || '').trim();
+  return value ? value.slice(0, 30) : null;
+}
+
+function sanitizeMapId(mapId) {
+  const value = String(mapId || '').trim();
+  return value ? value.slice(0, 30) : DEFAULT_MAP_ID;
+}
+
+function ensureRoom(roomCode, hostId, options = {}) {
   if (rooms.has(roomCode)) {
     return rooms.get(roomCode);
   }
   const room = {
     roomCode,
+    roomName: sanitizeRoomName(options.roomName),
+    password: sanitizePassword(options.password),
+    maxPlayers: sanitizeMaxPlayers(options.maxPlayers),
+    mapId: sanitizeMapId(options.mapId),
+    channel: sanitizeChannel(options.channel),
     hostId,
     phase: 'lobby',
     timer: 0,
@@ -65,6 +106,7 @@ function toPlayerPayload(player, room) {
     isAlive: player.isAlive,
     isCaught: player.isCaught,
     score: player.score,
+    isBot: !!player.isBot,
     ready: room ? !!room.ready.get(player.id) : false,
   };
 }
@@ -94,6 +136,31 @@ function emitRoomState(room) {
   });
 }
 
+function broadcastRoomList(channel) {
+  const roomList = [...rooms.values()]
+    .filter((room) => room.channel === channel)
+    .map((room) => ({
+      roomCode: room.roomCode,
+      roomName: room.roomName,
+      channel: room.channel,
+      status: room.phase === 'lobby' ? '대기중' : '게임중',
+      current: room.players.size,
+      max: room.maxPlayers,
+      locked: !!room.password,
+      mapId: room.mapId,
+    }));
+
+  for (const [clientId, ch] of lobbyClients.entries()) {
+    if (ch !== channel) {
+      continue;
+    }
+    const ws = clients.get(clientId);
+    if (ws) {
+      send(ws, 'room_list', { rooms: roomList });
+    }
+  }
+}
+
 function assignRoles(room) {
   const players = [...room.players.values()];
   if (players.length === 0) {
@@ -113,6 +180,7 @@ function setPhase(room, phase, timer) {
   room.phase = phase;
   room.timer = timer;
   broadcast(room, 'phase_change', { phase, timer });
+  broadcastRoomList(room.channel);
 }
 
 function randomBetween(min, max) {
@@ -144,7 +212,7 @@ function getSpawnPosition(role) {
 }
 
 function startRound(room) {
-  if (room.players.size < 2) {
+  if (room.players.size < MIN_PLAYERS) {
     return;
   }
   assignRoles(room);
@@ -159,6 +227,54 @@ function startRound(room) {
   }
   setPhase(room, 'preparing', PREP_TIME);
   emitRoomState(room);
+}
+
+function randomPokemonName() {
+  const names = Object.keys(speciesStats);
+  return names[Math.floor(Math.random() * names.length)] || 'Pikachu';
+}
+
+function nextBotId(room) {
+  let index = 1;
+  while (room.players.has(`bot-${index}`)) {
+    index += 1;
+  }
+  return `bot-${index}`;
+}
+
+function humanPlayers(room) {
+  return [...room.players.values()].filter((player) => !player.isBot);
+}
+
+function addPlayerToRoom(ws, room, playerName) {
+  if (room.players.size >= room.maxPlayers) {
+    send(ws, 'error', { message: 'Room is full.' });
+    return false;
+  }
+
+  const role = room.players.size === 0 ? 'trainer' : 'pokemon';
+  const player = {
+    id: ws.clientId,
+    name: String(playerName || 'Trainer').slice(0, 20),
+    role,
+    position: getSpawnPosition(role),
+    rotation: [0, 0, 0],
+    species: role === 'pokemon' ? { name: 'Pikachu', ...speciesStats.Pikachu } : undefined,
+    isAlive: true,
+    isCaught: false,
+    score: 0,
+    isBot: false,
+  };
+
+  room.players.set(ws.clientId, player);
+  room.ready.set(ws.clientId, false);
+  ws.roomCode = room.roomCode;
+
+  send(ws, 'joined', { playerId: ws.clientId, roomCode: room.roomCode, isHost: room.hostId === ws.clientId });
+  broadcast(room, 'player_joined', toPlayerPayload(player));
+  emitRoomState(room);
+  broadcastRoomList(room.channel);
+  return true;
 }
 
 function distance(a, b) {
@@ -225,34 +341,114 @@ function handleJoin(ws, data) {
   let room = rooms.get(roomCode);
 
   if (!room) {
-    room = ensureRoom(roomCode, clientId);
+    room = ensureRoom(roomCode, clientId, {
+      roomName: DEFAULT_ROOM_NAME,
+      password: null,
+      maxPlayers: DEFAULT_MAX_PLAYERS,
+      mapId: DEFAULT_MAP_ID,
+      channel: 1,
+    });
+    broadcastRoomList(room.channel);
   }
 
-  if (room.players.size >= MAX_PLAYERS) {
-    send(ws, 'error', { message: 'Room is full.' });
+  addPlayerToRoom(ws, room, data.playerName);
+}
+
+function handleCreateRoom(ws, data) {
+  const roomCode = generateUniqueRoomCode();
+  const room = ensureRoom(roomCode, ws.clientId, {
+    roomName: data.roomName,
+    password: data.password,
+    maxPlayers: data.maxPlayers,
+    mapId: data.mapId,
+    channel: data.channel,
+  });
+
+  send(ws, 'room_created', { roomCode });
+  addPlayerToRoom(ws, room, data.playerName);
+}
+
+function handleJoinRoom(ws, data) {
+  const roomCode = String(data.roomCode || '').trim();
+  const room = rooms.get(roomCode);
+  if (!room) {
+    send(ws, 'error', { message: 'Room not found.' });
     return;
   }
 
-  const role = room.players.size === 0 ? 'trainer' : 'pokemon';
-  const player = {
-    id: clientId,
-    name: String(data.playerName || 'Trainer').slice(0, 20),
-    role,
-    position: getSpawnPosition(role),
-    rotation: [0, 0, 0],
-    species: role === 'pokemon' ? { name: 'Pikachu', ...speciesStats.Pikachu } : undefined,
+  if (room.password && room.password !== String(data.password || '')) {
+    send(ws, 'error', { message: 'Wrong password.' });
+    return;
+  }
+
+  addPlayerToRoom(ws, room, data.playerName);
+}
+
+function handleListRooms(ws, data) {
+  const channel = sanitizeChannel(data.channel);
+  lobbyClients.set(ws.clientId, channel);
+  broadcastRoomList(channel);
+}
+
+function handleStopListRooms(ws) {
+  lobbyClients.delete(ws.clientId);
+}
+
+function handleAddBot(ws) {
+  const room = rooms.get(ws.roomCode);
+  if (!room || room.hostId !== ws.clientId) {
+    return;
+  }
+
+  const humans = humanPlayers(room);
+  const botCount = room.players.size - humans.length;
+  const maxBots = Math.max(0, room.maxPlayers - humans.length);
+  if (botCount >= maxBots) {
+    send(ws, 'error', { message: 'Cannot add more bots.' });
+    return;
+  }
+
+  const speciesName = randomPokemonName();
+  const botId = nextBotId(room);
+  const bot = {
+    id: botId,
+    name: `봇 ${speciesName}`,
+    role: 'pokemon',
+    position: getSpawnPosition('pokemon'),
+    rotation: [0, Math.random() * Math.PI * 2, 0],
+    species: { name: speciesName, ...speciesStats[speciesName] },
     isAlive: true,
     isCaught: false,
     score: 0,
+    isBot: true,
+    wanderDir: null,
+    wanderUntil: 0,
   };
 
-  room.players.set(clientId, player);
-  room.ready.set(clientId, false);
-  ws.roomCode = roomCode;
-
-  send(ws, 'joined', { playerId: clientId, roomCode, isHost: room.hostId === clientId });
-  broadcast(room, 'player_joined', toPlayerPayload(player));
+  room.players.set(botId, bot);
+  room.ready.set(botId, true);
+  broadcast(room, 'bot_added', { botId, botName: bot.name });
   emitRoomState(room);
+  broadcastRoomList(room.channel);
+}
+
+function handleRemoveBot(ws, data) {
+  const room = rooms.get(ws.roomCode);
+  if (!room || room.hostId !== ws.clientId) {
+    return;
+  }
+
+  const botId = String(data.botId || '');
+  const bot = room.players.get(botId);
+  if (!bot || !bot.isBot) {
+    return;
+  }
+
+  room.players.delete(botId);
+  room.ready.delete(botId);
+  broadcast(room, 'bot_removed', { botId });
+  emitRoomState(room);
+  broadcastRoomList(room.channel);
 }
 
 function handleReady(ws, data) {
@@ -297,7 +493,7 @@ function handleStartGame(ws) {
   if (!room || room.hostId !== ws.clientId) {
     return;
   }
-  if (room.players.size < 2) {
+  if (room.players.size < MIN_PLAYERS) {
     send(ws, 'error', { message: 'Need at least 2 players.' });
     return;
   }
@@ -340,18 +536,21 @@ function leaveRoom(ws) {
   room.players.delete(ws.clientId);
   room.ready.delete(ws.clientId);
 
-  if (room.players.size === 0) {
+  const humans = humanPlayers(room);
+  if (humans.length === 0) {
     rooms.delete(room.roomCode);
+    broadcastRoomList(room.channel);
     return;
   }
 
   if (room.hostId === ws.clientId) {
-    room.hostId = [...room.players.keys()][0];
+    room.hostId = humans[0].id;
   }
 
   assignRoles(room);
   broadcast(room, 'player_left', { playerId: ws.clientId });
   emitRoomState(room);
+  broadcastRoomList(room.channel);
 }
 
 wss.on('connection', (ws) => {
@@ -374,6 +573,18 @@ wss.on('connection', (ws) => {
 
     const data = message.data || {};
     switch (message.type) {
+      case 'list_rooms':
+        handleListRooms(ws, data);
+        break;
+      case 'stop_list_rooms':
+        handleStopListRooms(ws);
+        break;
+      case 'create_room':
+        handleCreateRoom(ws, data);
+        break;
+      case 'join_room':
+        handleJoinRoom(ws, data);
+        break;
       case 'join':
         handleJoin(ws, data);
         break;
@@ -406,6 +617,12 @@ wss.on('connection', (ws) => {
       case 'start_game':
         handleStartGame(ws);
         break;
+      case 'add_bot':
+        handleAddBot(ws);
+        break;
+      case 'remove_bot':
+        handleRemoveBot(ws, data);
+        break;
       case 'chat':
         handleChat(ws, data);
         break;
@@ -415,10 +632,70 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    lobbyClients.delete(ws.clientId);
     leaveRoom(ws);
     clients.delete(ws.clientId);
   });
 });
+
+setInterval(() => {
+  for (const room of rooms.values()) {
+    if (room.phase !== 'hunting') {
+      continue;
+    }
+
+    const trainers = [...room.players.values()].filter((player) => player.role === 'trainer' && !player.isCaught);
+    const bots = [...room.players.values()].filter((player) => player.isBot && player.role === 'pokemon' && !player.isCaught);
+
+    for (const bot of bots) {
+      const speed = bot.species?.speed || speciesStats.Pikachu.speed;
+      const dt = 0.5;
+      let moveX = 0;
+      let moveZ = 0;
+
+      let nearestTrainer = null;
+      let nearestDistance = Infinity;
+      for (const trainer of trainers) {
+        const d = distance(bot.position, trainer.position);
+        if (d < nearestDistance) {
+          nearestDistance = d;
+          nearestTrainer = trainer;
+        }
+      }
+
+      if (nearestTrainer && nearestDistance < 15) {
+        const dx = bot.position[0] - nearestTrainer.position[0];
+        const dz = bot.position[2] - nearestTrainer.position[2];
+        const len = Math.sqrt(dx * dx + dz * dz) || 1;
+        const step = speed * 0.5 * dt;
+        moveX = (dx / len) * step;
+        moveZ = (dz / len) * step;
+      } else {
+        const now = Date.now();
+        if (!bot.wanderDir || now >= (bot.wanderUntil || 0)) {
+          const angle = Math.random() * Math.PI * 2;
+          bot.wanderDir = [Math.cos(angle), Math.sin(angle)];
+          bot.wanderUntil = now + 2000 + Math.floor(Math.random() * 1000);
+        }
+        const step = speed * 0.3 * dt;
+        moveX = bot.wanderDir[0] * step;
+        moveZ = bot.wanderDir[1] * step;
+      }
+
+      const x = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[0] + moveX));
+      const z = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[2] + moveZ));
+      const yaw = Math.atan2(moveX, moveZ);
+      bot.position = [x, SPAWN_HEIGHT, z];
+      bot.rotation = [0, Number.isFinite(yaw) ? yaw : 0, 0];
+
+      broadcast(room, 'position', {
+        playerId: bot.id,
+        position: bot.position,
+        rotation: bot.rotation,
+      });
+    }
+  }
+}, 500);
 
 setInterval(() => {
   for (const room of rooms.values()) {
