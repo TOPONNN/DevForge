@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./pokemon-prop-hunt
+      dockerfile: Dockerfile
+    container_name: pokemon-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - ws-server
+    networks:
+      - pokemon-net
+
+  ws-server:
+    build:
+      context: ./pokemon-prop-hunt/server
+      dockerfile: Dockerfile
+    container_name: pokemon-ws-server
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    networks:
+      - pokemon-net
+
+networks:
+  pokemon-net:
+    driver: bridge
