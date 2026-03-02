@@ -1,0 +1,108 @@
+import { AdaptiveDpr, AdaptiveEvents, Stats } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Physics } from '@react-three/rapier';
+import { useEffect } from 'react';
+import * as THREE from 'three';
+import { useKeyboard } from '../hooks/useKeyboard';
+import { useGameStore } from '../stores/gameStore';
+import { useNetworkStore } from '../stores/networkStore';
+import CatchAnimation from './CatchAnimation';
+import GameMap from './GameMap';
+import Player from './Player';
+import PokeballSystem from './PokeballSystem';
+import PokemonCharacter from './PokemonCharacter';
+
+interface GameSceneProps {
+  keysRef: ReturnType<typeof useKeyboard>;
+  pointerLocked: boolean;
+}
+
+function CameraSetup() {
+  const { camera, scene } = useThree();
+
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.fov = 75;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera]);
+
+  useEffect(() => {
+    scene.fog = new THREE.Fog('#A8E8FF', 60, 250);
+    return () => {
+      scene.fog = null;
+    };
+  }, [scene]);
+
+  return null;
+}
+
+function RemotePlayers() {
+  const playerId = useNetworkStore((state) => state.playerId);
+  const players = useNetworkStore((state) => state.players);
+
+  return (
+    <group>
+      {[...players.values()]
+        .filter((player) => player.id !== playerId)
+        .map((player) => {
+          if (player.role === 'pokemon' && player.species) {
+            return (
+              <PokemonCharacter
+                key={player.id}
+                id={player.id}
+                name={player.name}
+                species={player.species}
+                position={player.position}
+                rotation={player.rotation}
+                isMoving={!player.isCaught}
+                escaping={false}
+                invulnerable={false}
+                isCaught={player.isCaught}
+              />
+            );
+          }
+          return (
+            <mesh key={player.id} position={player.position} castShadow>
+              <capsuleGeometry args={[0.35, 0.9, 8, 12]} />
+              <meshStandardMaterial color="#1D3557" roughness={0.38} metalness={0.1} />
+            </mesh>
+          );
+        })}
+    </group>
+  );
+}
+
+export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
+  const showFps = false;
+  const phase = useGameStore((state) => state.phase);
+
+  if (phase === 'lobby' || phase === 'selecting') {
+    return null;
+  }
+
+  return (
+    <Canvas
+      shadows
+      dpr={[1, 2]}
+      frameloop="always"
+      camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
+    >
+      <color attach="background" args={['#99E6FF']} />
+      <CameraSetup />
+
+      <Physics gravity={[0, -20, 0]} interpolate>
+        <GameMap />
+        <Player keysRef={keysRef} pointerLocked={pointerLocked} />
+        <RemotePlayers />
+        <PokeballSystem pointerLocked={pointerLocked} />
+      </Physics>
+
+      <CatchAnimation />
+      <AdaptiveDpr pixelated />
+      <AdaptiveEvents />
+      {showFps ? <Stats className="fps-counter" showPanel={0} /> : null}
+    </Canvas>
+  );
+}

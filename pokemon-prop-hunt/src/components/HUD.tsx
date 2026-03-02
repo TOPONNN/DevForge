@@ -1,0 +1,166 @@
+import { useEffect, useMemo } from 'react';
+import { useGameStore } from '../stores/gameStore';
+import { useNetworkStore } from '../stores/networkStore';
+
+const KOREAN_NAMES: Record<string, string> = {
+  Pikachu: '피카츄', Charmander: '파이리', Bulbasaur: '이상해씨', Squirtle: '꼬부기',
+  Eevee: '이브이', Snorlax: '잠만보', Gengar: '팬텀', Jigglypuff: '푸린',
+};
+
+const SPECIES_COLORS: Record<string, string> = {
+  Pikachu: '#FFD60A', Charmander: '#F77F00', Bulbasaur: '#2A9D8F', Squirtle: '#5FA8D3',
+  Eevee: '#B08968', Snorlax: '#4D908E', Gengar: '#4361EE', Jigglypuff: '#F6BDC0',
+};
+
+const formatTime = (time: number) => {
+  const m = Math.floor(time / 60).toString().padStart(2, '0');
+  const s = Math.floor(time % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+};
+
+export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
+  const role = useGameStore((state) => state.role);
+  const phase = useGameStore((state) => state.phase);
+  const timeLeft = useGameStore((state) => state.timeLeft);
+  const pokeballs = useGameStore((state) => state.pokeballs);
+  const throwPower = useGameStore((state) => state.throwPower);
+  const isCharging = useGameStore((state) => state.isCharging);
+  const caughtPokemon = useGameStore((state) => state.caughtPokemon);
+  const selectedSpecies = useGameStore((state) => state.selectedSpecies);
+  const dodgeCooldown = useGameStore((state) => state.dodgeCooldown);
+  const isCaught = useGameStore((state) => state.isCaught);
+  const catchAttemptResult = useGameStore((state) => state.catchAttemptResult);
+  const clearCatchAttemptResult = useGameStore((state) => state.clearCatchAttemptResult);
+
+  const players = useNetworkStore((state) => state.players);
+
+  useEffect(() => {
+    if (!catchAttemptResult) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      clearCatchAttemptResult();
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [catchAttemptResult, clearCatchAttemptResult]);
+
+  const caughtEntries = useMemo(() => {
+    const entries: { name: string; color: string }[] = [];
+    for (const id of caughtPokemon) {
+      const player = players.get(id);
+      if (player) {
+        const specName = player.species?.name ?? 'Unknown';
+        entries.push({
+          name: KOREAN_NAMES[specName] ?? specName,
+          color: SPECIES_COLORS[specName] ?? '#fff',
+        });
+      }
+    }
+    return entries;
+  }, [caughtPokemon, players]);
+
+  const uncaughtPokemonCount = useMemo(() => {
+    let total = 0;
+    for (const player of players.values()) {
+      if (player.role === 'pokemon' && !player.isCaught) {
+        total += 1;
+      }
+    }
+    return total;
+  }, [players]);
+
+  if (phase === 'lobby' || phase === 'selecting') {
+    return null;
+  }
+
+  const timerLow = timeLeft < 30;
+  const specKrName = selectedSpecies ? (KOREAN_NAMES[selectedSpecies.name] ?? selectedSpecies.name) : '포켓몬';
+  const dodgeReady = dodgeCooldown <= 0;
+  const dodgePct = dodgeReady ? 100 : Math.max(0, (1 - dodgeCooldown / 2) * 100);
+
+  return (
+    <div className={`hud-layer ${pointerLocked ? 'active' : ''}`}>
+      <div className={`hud-top-center ${timerLow ? 'timer-critical' : ''}`}>
+        <span className="hud-timer-icon">⏱</span>
+        <span className="hud-timer-text">{formatTime(timeLeft)}</span>
+      </div>
+
+      {role === 'trainer' ? (
+        <>
+          <div className="hud-top-right trainer-caught-panel">
+            <div className="hud-title">잡은 포켓몬</div>
+            {caughtEntries.length === 0 ? (
+              <div className="hud-empty">아직 없음</div>
+            ) : (
+              caughtEntries.map((entry) => (
+                <div key={entry.name} className="caught-row">
+                  <span className="caught-dot" style={{ background: entry.color }} />
+                  <span>{entry.name}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hud-bottom-right pokeball-panel">
+            <div className="hud-title">몬스터볼 <span className="hud-count">{pokeballs}/10</span></div>
+            <div className="pokeball-icons">
+              {Array.from({ length: 10 }).map((_, index) => (
+                <span key={`pokeball-${index}`} className={`pokeball-icon ${index < pokeballs ? 'filled' : 'empty'}`}>
+                  <span className="pb-top" />
+                  <span className="pb-band" />
+                  <span className="pb-dot" />
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {isCharging ? (
+            <div className="hud-bottom-center throw-meter-panel">
+              <div className="hud-title">던지기 파워</div>
+              <div className="throw-meter-track">
+                <div
+                  className="throw-meter-fill"
+                  style={{ width: `${Math.round(throwPower * 100)}%` }}
+                />
+              </div>
+              <div className="throw-meter-pct">{Math.round(throwPower * 100)}%</div>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <div className="hud-bottom-left pokemon-panel">
+            <div className="hud-title">{specKrName}</div>
+            <div className="pokemon-dodge-section">
+              <span className="dodge-label">회피</span>
+              <div className="dodge-bar-track">
+                <div className={`dodge-bar-fill ${dodgeReady ? 'ready' : ''}`} style={{ width: `${dodgePct}%` }} />
+              </div>
+              <span className={`dodge-status ${dodgeReady ? 'ready' : ''}`}>{dodgeReady ? '준비' : `${dodgeCooldown.toFixed(1)}초`}</span>
+            </div>
+          </div>
+
+          <div className="hud-top-right pokemon-count-panel">
+            <div className="hud-title">남은 포켓몬</div>
+            <div className="hud-value-big">{uncaughtPokemonCount}</div>
+          </div>
+
+          {isCaught ? (
+            <div className="caught-overlay">
+              <div className="caught-overlay-card">
+                <span className="caught-overlay-icon">●</span>
+                잡혔습니다!
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {catchAttemptResult ? (
+        <div className={`catch-result-banner ${catchAttemptResult.result}`}>
+          {catchAttemptResult.result === 'caught' ? '잡았다!' : '이런! 도망쳤다!'}
+        </div>
+      ) : null}
+    </div>
+  );
+}
