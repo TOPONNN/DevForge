@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32">
+  <!-- Top half (red) -->
+  <path d="M 50 5 A 45 45 0 0 1 95 50 H 62 A 12 12 0 0 0 38 50 H 5 A 45 45 0 0 1 50 5 Z" fill="#EE1515" stroke="#222" stroke-width="3"/>
+  <!-- Bottom half (white) -->
+  <path d="M 5 50 H 38 A 12 12 0 0 0 62 50 H 95 A 45 45 0 0 1 5 50 Z" fill="#F0F0F0" stroke="#222" stroke-width="3"/>
+  <!-- Center line -->
+  <line x1="5" y1="50" x2="38" y2="50" stroke="#222" stroke-width="3"/>
+  <line x1="62" y1="50" x2="95" y2="50" stroke="#222" stroke-width="3"/>
+  <!-- Center button -->
+  <circle cx="50" cy="50" r="12" fill="#F0F0F0" stroke="#222" stroke-width="3"/>
+  <circle cx="50" cy="50" r="6" fill="#fff" stroke="#222" stroke-width="2.5"/>
+  <!-- Outer ring -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#222" stroke-width="3"/>
+</svg>
