@@ -638,53 +638,346 @@ wss.on('connection', (ws) => {
   });
 });
 
+// ──────── MAP OBSTACLE KNOWLEDGE ────────
+// Replicate client's seeded RNG to know exact tree/rock/bush positions
+const CLEARING_RADIUS = 10;
+
+function hashSeed(seed) {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createSeededRng(seed) {
+  let state = hashSeed(seed) || 1;
+  return () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function scatterCover(seed, count, minRadius, edgePadding, minSpacing) {
+  const rng = createSeededRng(seed);
+  const pts = [];
+  let att = 0;
+  while (pts.length < count && att < count * 140) {
+    att++;
+    const span = MAP_HALF_EXTENT - edgePadding;
+    const x = (rng() * 2 - 1) * span;
+    const z = (rng() * 2 - 1) * span;
+    if (Math.hypot(x, z) <= minRadius) continue;
+    let overlap = false;
+    for (const p of pts) {
+      if ((p.x - x) ** 2 + (p.z - z) ** 2 < minSpacing * minSpacing) { overlap = true; break; }
+    }
+    if (overlap) continue;
+    rng(); rng(); rng(); rng(); rng(); // consume scale, rotation, tiltX, tiltZ, variant
+    pts.push({ x, z });
+  }
+  return pts;
+}
+
+function generateCoverPositions() {
+  const covers = [];
+
+  // Core trees (matches client seed 'core-trees')
+  scatterCover('core-trees', 42, CLEARING_RADIUS, 6, 5)
+    .forEach((p) => covers.push({ x: p.x, z: p.z, r: 2.5 }));
+
+  // Rocks (matches client seed 'rock-field')
+  scatterCover('rock-field', 18, CLEARING_RADIUS, 8, 6)
+    .forEach((p) => covers.push({ x: p.x, z: p.z, r: 1.8 }));
+
+  // Bushes (matches client seed 'bush-clumps')
+  scatterCover('bush-clumps', 10, CLEARING_RADIUS, 10, 8)
+    .forEach((p) => covers.push({ x: p.x, z: p.z, r: 1.5 }));
+
+  // Boundary trees along map edges (matches client 'boundary-tree-line')
+  const bRng = createSeededRng('boundary-tree-line');
+  const sides = [
+    { axis: 'x', fixed: -46, count: 4 },
+    { axis: 'x', fixed: 46, count: 4 },
+    { axis: 'z', fixed: -46, count: 3 },
+    { axis: 'z', fixed: 46, count: 3 },
+  ];
+  for (const side of sides) {
+    for (let i = 0; i < side.count; i++) {
+      const t = (i + 1) / (side.count + 1);
+      const sweep = -35 + t * 70 + (bRng() * 2 - 1) * 2.8;
+      const cx = side.axis === 'x' ? side.fixed + (bRng() * 2 - 1) * 1.6 : sweep;
+      const cz = side.axis === 'z' ? side.fixed + (bRng() * 2 - 1) * 1.6 : sweep;
+      covers.push({ x: cx, z: cz, r: 2.5 });
+      bRng(); bRng(); bRng(); bRng(); bRng(); // consume scale, rotation, tiltX, tiltZ, variant
+    }
+  }
+
+  return covers;
+}
+
+const COVER_SPOTS = generateCoverPositions();
+
+// ──────── SMART BOT AI ────────
+const AI_PATROL = 'patrol';
+const AI_ALERT  = 'alert';
+const AI_FLEE   = 'flee';
+const AI_HIDE   = 'hide';
+
+const ALERT_RANGE_BASE = 30;
+const FLEE_RANGE_BASE  = 15;
+const SAFE_RANGE       = 40;
+const EDGE_BUFFER      = 6;
+const HIDE_ARRIVAL     = 3;
+
+function findBestCover(botPos, trainerPos) {
+  let best = null;
+  let bestScore = -Infinity;
+  for (const c of COVER_SPOTS) {
+    const dBot = Math.hypot(c.x - botPos[0], c.z - botPos[2]);
+    const dTrainer = Math.hypot(c.x - trainerPos[0], c.z - trainerPos[2]);
+    // Prefer cover that is close to bot but far from trainer
+    let score = dTrainer * 0.6 - dBot * 1.0;
+    // Bonus: cover on opposite side of trainer
+    const toTX = trainerPos[0] - botPos[0];
+    const toTZ = trainerPos[2] - botPos[2];
+    const toCX = c.x - botPos[0];
+    const toCZ = c.z - botPos[2];
+    const dot = toTX * toCX + toTZ * toCZ;
+    if (dot < 0) score += 6;
+    // Penalty: too close to map edge (avoid getting cornered)
+    if (Math.abs(c.x) > MAP_HALF_EXTENT - EDGE_BUFFER || Math.abs(c.z) > MAP_HALF_EXTENT - EDGE_BUFFER) {
+      score -= 8;
+    }
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best;
+}
+
+function findNearestCover(pos) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const c of COVER_SPOTS) {
+    const d = Math.hypot(c.x - pos[0], c.z - pos[2]);
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return { cover: best, dist: bestDist };
+}
+
+function steerAwayFromEdge(px, pz, mx, mz) {
+  const limit = MAP_HALF_EXTENT - EDGE_BUFFER;
+  let fx = mx;
+  let fz = mz;
+  if (px + mx > limit)  fx = -Math.abs(mx) * 0.8;
+  if (px + mx < -limit) fx =  Math.abs(mx) * 0.8;
+  if (pz + mz > limit)  fz = -Math.abs(mz) * 0.8;
+  if (pz + mz < -limit) fz =  Math.abs(mz) * 0.8;
+  return [fx, fz];
+}
+
+function tickBotAI(bot, trainers, dt) {
+  const speed = bot.species?.speed || speciesStats.Pikachu.speed;
+  const size = bot.species?.size || 'medium';
+  const now = Date.now();
+
+  // Init AI state on first tick
+  if (!bot.ai) {
+    bot.ai = {
+      state: AI_PATROL,
+      target: null,
+      zigzag: 0,
+      changed: now,
+      patrolIdx: Math.floor(Math.random() * COVER_SPOTS.length),
+    };
+  }
+
+  // --- Find nearest trainer ---
+  let nearest = null;
+  let nearDist = Infinity;
+  for (const t of trainers) {
+    const d = distance(bot.position, t.position);
+    if (d < nearDist) { nearDist = d; nearest = t; }
+  }
+
+  // --- Species-specific modifiers ---
+  // Small/fast → detect earlier, zigzag more
+  // Large/slow → detect earlier, prefer hiding
+  const alertRange = size === 'small' ? ALERT_RANGE_BASE * 1.2
+    : size === 'large' ? ALERT_RANGE_BASE * 1.1 : ALERT_RANGE_BASE;
+  const fleeRange = size === 'small' ? FLEE_RANGE_BASE * 1.15
+    : size === 'large' ? FLEE_RANGE_BASE * 1.0 : FLEE_RANGE_BASE;
+
+  // --- State transitions ---
+  const prev = bot.ai.state;
+
+  if (nearest) {
+    if (nearDist < fleeRange) {
+      bot.ai.state = AI_FLEE;
+    } else if (nearDist < alertRange) {
+      // Stay hidden at least 5s before re-evaluating
+      if (prev === AI_HIDE && now - bot.ai.changed < 5000) {
+        // keep hiding
+      } else {
+        bot.ai.state = AI_ALERT;
+      }
+    } else if (nearDist > SAFE_RANGE) {
+      if (prev === AI_FLEE || prev === AI_ALERT || prev === AI_HIDE) {
+        bot.ai.state = AI_PATROL;
+      }
+    }
+  } else {
+    bot.ai.state = AI_PATROL;
+  }
+
+  if (prev !== bot.ai.state) {
+    bot.ai.changed = now;
+    bot.ai.target = null;
+  }
+
+  // --- Movement per state ---
+  let mx = 0;
+  let mz = 0;
+
+  switch (bot.ai.state) {
+    case AI_PATROL: {
+      // Walk between random cover spots (looks natural)
+      const dest = COVER_SPOTS[bot.ai.patrolIdx % COVER_SPOTS.length];
+      if (!dest) break;
+      const dx = dest.x - bot.position[0];
+      const dz = dest.z - bot.position[2];
+      const dl = Math.sqrt(dx * dx + dz * dz) || 1;
+      if (dl < 2.5) {
+        // Pick next patrol point (nearby, not same spot)
+        bot.ai.patrolIdx = Math.floor(Math.random() * COVER_SPOTS.length);
+      } else {
+        const step = speed * 0.22 * dt;
+        mx = (dx / dl) * step;
+        mz = (dz / dl) * step;
+        // Small random deviation for natural look
+        mx += (Math.random() - 0.5) * step * 0.2;
+        mz += (Math.random() - 0.5) * step * 0.2;
+      }
+      break;
+    }
+
+    case AI_ALERT: {
+      // Move toward best cover between bot and trainer
+      if (!bot.ai.target && nearest) {
+        bot.ai.target = findBestCover(bot.position, nearest.position);
+      }
+      if (bot.ai.target) {
+        const dx = bot.ai.target.x - bot.position[0];
+        const dz = bot.ai.target.z - bot.position[2];
+        const dl = Math.sqrt(dx * dx + dz * dz) || 1;
+        if (dl < HIDE_ARRIVAL) {
+          bot.ai.state = AI_HIDE;
+          bot.ai.changed = now;
+        } else {
+          const step = speed * 0.55 * dt;
+          mx = (dx / dl) * step;
+          mz = (dz / dl) * step;
+        }
+      }
+      break;
+    }
+
+    case AI_FLEE: {
+      // Evasive retreat with zigzag
+      if (nearest) {
+        const dx = bot.position[0] - nearest.position[0];
+        const dz = bot.position[2] - nearest.position[2];
+        const dl = Math.sqrt(dx * dx + dz * dz) || 1;
+
+        // Zigzag: small = aggressive zigzag, large = mild
+        const zigzagAmp = size === 'small' ? 0.7 : size === 'large' ? 0.3 : 0.5;
+        const zigzagFreq = size === 'small' ? 4.0 : size === 'large' ? 2.0 : 3.0;
+        bot.ai.zigzag += dt * zigzagFreq;
+        const zig = Math.sin(bot.ai.zigzag) * zigzagAmp;
+
+        // Perpendicular vector for zigzag
+        const perpX = -dz / dl;
+        const perpZ = dx / dl;
+
+        const step = speed * 0.7 * dt;
+        mx = ((dx / dl) + perpX * zig) * step;
+        mz = ((dz / dl) + perpZ * zig) * step;
+
+        // Steer away from edges
+        const steered = steerAwayFromEdge(bot.position[0], bot.position[2], mx, mz);
+        mx = steered[0];
+        mz = steered[1];
+
+        // Opportunistic cover: if a cover spot is nearby and roughly
+        // in our flee direction, blend toward it
+        const near = findNearestCover(bot.position);
+        if (near.cover && near.dist < 10) {
+          const tcx = near.cover.x - bot.position[0];
+          const tcz = near.cover.z - bot.position[2];
+          const tcl = Math.sqrt(tcx * tcx + tcz * tcz) || 1;
+          // Only blend if cover is roughly away from trainer
+          const coverDot = (dx / dl) * (tcx / tcl) + (dz / dl) * (tcz / tcl);
+          if (coverDot > 0.1) {
+            mx = mx * 0.45 + (tcx / tcl) * step * 0.55;
+            mz = mz * 0.45 + (tcz / tcl) * step * 0.55;
+          }
+        }
+      }
+      break;
+    }
+
+    case AI_HIDE: {
+      // Stay near cover position, creep to stay behind it
+      const cov = bot.ai.target;
+      if (cov && nearest) {
+        // Position ourselves so cover is between us and trainer
+        const ttx = nearest.position[0] - cov.x;
+        const ttz = nearest.position[2] - cov.z;
+        const ttl = Math.sqrt(ttx * ttx + ttz * ttz) || 1;
+        // Ideal hide position: opposite side of cover from trainer
+        const idealX = cov.x - (ttx / ttl) * (cov.r || 2);
+        const idealZ = cov.z - (ttz / ttl) * (cov.r || 2);
+        const toIdealX = idealX - bot.position[0];
+        const toIdealZ = idealZ - bot.position[2];
+        const idl = Math.sqrt(toIdealX * toIdealX + toIdealZ * toIdealZ) || 1;
+        if (idl > 0.8) {
+          const step = speed * 0.18 * dt;
+          mx = (toIdealX / idl) * step;
+          mz = (toIdealZ / idl) * step;
+        }
+      } else if (cov) {
+        // No trainer visible, just stay near cover
+        const dx = cov.x - bot.position[0];
+        const dz = cov.z - bot.position[2];
+        const dl = Math.sqrt(dx * dx + dz * dz);
+        if (dl > 1.5) {
+          const step = speed * 0.12 * dt;
+          mx = (dx / dl) * step;
+          mz = (dz / dl) * step;
+        }
+      }
+      break;
+    }
+  }
+
+  return { mx, mz };
+}
+
+// Bot tick: 500ms interval
 setInterval(() => {
   for (const room of rooms.values()) {
     if (room.phase !== 'hunting') {
       continue;
     }
 
-    const trainers = [...room.players.values()].filter((player) => player.role === 'trainer' && !player.isCaught);
-    const bots = [...room.players.values()].filter((player) => player.isBot && player.role === 'pokemon' && !player.isCaught);
+    const trainers = [...room.players.values()].filter((p) => p.role === 'trainer' && !p.isCaught);
+    const bots = [...room.players.values()].filter((p) => p.isBot && p.role === 'pokemon' && !p.isCaught);
 
     for (const bot of bots) {
-      const speed = bot.species?.speed || speciesStats.Pikachu.speed;
-      const dt = 0.5;
-      let moveX = 0;
-      let moveZ = 0;
-
-      let nearestTrainer = null;
-      let nearestDistance = Infinity;
-      for (const trainer of trainers) {
-        const d = distance(bot.position, trainer.position);
-        if (d < nearestDistance) {
-          nearestDistance = d;
-          nearestTrainer = trainer;
-        }
-      }
-
-      if (nearestTrainer && nearestDistance < 15) {
-        const dx = bot.position[0] - nearestTrainer.position[0];
-        const dz = bot.position[2] - nearestTrainer.position[2];
-        const len = Math.sqrt(dx * dx + dz * dz) || 1;
-        const step = speed * 0.5 * dt;
-        moveX = (dx / len) * step;
-        moveZ = (dz / len) * step;
-      } else {
-        const now = Date.now();
-        if (!bot.wanderDir || now >= (bot.wanderUntil || 0)) {
-          const angle = Math.random() * Math.PI * 2;
-          bot.wanderDir = [Math.cos(angle), Math.sin(angle)];
-          bot.wanderUntil = now + 2000 + Math.floor(Math.random() * 1000);
-        }
-        const step = speed * 0.3 * dt;
-        moveX = bot.wanderDir[0] * step;
-        moveZ = bot.wanderDir[1] * step;
-      }
-
-      const x = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[0] + moveX));
-      const z = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[2] + moveZ));
-      const yaw = Math.atan2(moveX, moveZ);
+      const { mx, mz } = tickBotAI(bot, trainers, 0.5);
+      const x = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[0] + mx));
+      const z = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[2] + mz));
+      const yaw = Math.atan2(mx, mz);
       bot.position = [x, SPAWN_HEIGHT, z];
       bot.rotation = [0, Number.isFinite(yaw) ? yaw : 0, 0];
 

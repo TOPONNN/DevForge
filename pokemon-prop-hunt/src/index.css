@@ -883,6 +883,17 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .modal-map-card:hover:not(.active) { border-color: #8b6b4a; }
 
+.modal-map-card.coming-soon {
+  opacity: 0.5; cursor: not-allowed; position: relative;
+}
+
+.modal-map-card.coming-soon:hover { border-color: #d1ccc0; }
+
+.coming-soon-badge {
+  font-family: 'Jua', sans-serif; font-size: 0.75rem; color: #fff;
+  background: rgba(0,0,0,0.55); padding: 0.2rem 0.6rem; border-radius: 8px;
+}
+
 .modal-map-preview { height: 60px; display: grid; place-items: center; }
 
 .modal-map-name {

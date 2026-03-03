@@ -12,9 +12,9 @@ const CHANNELS = [
 ];
 
 const MAP_OPTS = [
-  { id: 'nature', name: '자연맵', gradient: 'linear-gradient(135deg, #2a9d8f, #55efc4)' },
-  { id: 'city', name: '도시맵', gradient: 'linear-gradient(135deg, #457b9d, #74b9ff)' },
-  { id: 'desert', name: '사막맵', gradient: 'linear-gradient(135deg, #e17055, #ffeaa7)' },
+  { id: 'nature', name: '포켓몬 숲', gradient: 'linear-gradient(135deg, #2a9d8f, #55efc4)', comingSoon: false },
+  { id: 'city', name: '도시맵', gradient: 'linear-gradient(135deg, #457b9d, #74b9ff)', comingSoon: true },
+  { id: 'desert', name: '사막맵', gradient: 'linear-gradient(135deg, #e17055, #ffeaa7)', comingSoon: true },
 ];
 
 const MAX_PLAYER_OPTS = [4, 6, 8, 10, 12];
@@ -299,10 +299,12 @@ export default function LobbyScreen() {
                   {MAP_OPTS.map((m) => (
                     <div
                       key={m.id}
-                      className={`modal-map-card ${newMapId === m.id ? 'active' : ''}`}
-                      onClick={() => setNewMapId(m.id)}
+                      className={`modal-map-card ${newMapId === m.id ? 'active' : ''} ${m.comingSoon ? 'coming-soon' : ''}`}
+                      onClick={() => !m.comingSoon && setNewMapId(m.id)}
                     >
-                      <div className="modal-map-preview" style={{ background: m.gradient }} />
+                      <div className="modal-map-preview" style={{ background: m.gradient }}>
+                        {m.comingSoon && <span className="coming-soon-badge">추후 추가 예정</span>}
+                      </div>
                       <span className="modal-map-name">{m.name}</span>
                     </div>
                   ))}

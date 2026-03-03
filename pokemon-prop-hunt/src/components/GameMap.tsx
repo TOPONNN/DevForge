@@ -1,4 +1,5 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { useGLTF } from '@react-three/drei';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -209,6 +210,70 @@ function GrassPatchField({ points }: { points: ScatterPoint[] }) {
   );
 }
 
+const TREE_MODEL_PATHS = [
+  '/models/nature/BirchTree_1.glb',
+  '/models/nature/BirchTree_2.glb',
+  '/models/nature/BirchTree_3.glb',
+] as const;
+
+const BUSH_MODEL_PATHS = [
+  '/models/nature/Bush.glb',
+  '/models/nature/Bush_Large.glb',
+  '/models/nature/Bush_Small.glb',
+] as const;
+
+type QuaterniusNatureProps = {
+  point: ScatterPoint;
+};
+
+function QuaterniusTree({ point }: QuaterniusNatureProps) {
+  const treeScale = point.scale * 2.5;
+  const modelPath = TREE_MODEL_PATHS[point.variant % TREE_MODEL_PATHS.length];
+  const gltf = useGLTF(modelPath);
+
+  const clonedScene = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    return scene;
+  }, [gltf.scene]);
+
+  return (
+    <RigidBody type="fixed" colliders={false} position={[point.x, 0, point.z]} rotation={[point.tiltX, point.rotation, point.tiltZ]}>
+      <CuboidCollider args={[0.38 * treeScale, 1.1 * treeScale, 0.38 * treeScale]} position={[0, 1.1 * treeScale, 0]} />
+      <primitive object={clonedScene} scale={[treeScale, treeScale, treeScale]} />
+    </RigidBody>
+  );
+}
+
+function QuaterniusBush({ point }: QuaterniusNatureProps) {
+  const bushScale = point.scale * 1.8;
+  const modelPath = BUSH_MODEL_PATHS[point.variant % BUSH_MODEL_PATHS.length];
+  const gltf = useGLTF(modelPath);
+
+  const clonedScene = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    return scene;
+  }, [gltf.scene]);
+
+  return (
+    <RigidBody type="fixed" colliders={false} position={[point.x, 0, point.z]} rotation={[point.tiltX, point.rotation, point.tiltZ]}>
+      <CuboidCollider args={[0.42 * bushScale, 0.45 * bushScale, 0.42 * bushScale]} position={[0, 0.45 * bushScale, 0]} />
+      <primitive object={clonedScene} scale={[bushScale, bushScale, bushScale]} />
+    </RigidBody>
+  );
+}
+
 export default function GameMap() {
   const treePoints = useMemo(
     () => [
@@ -276,11 +341,7 @@ export default function GameMap() {
 
   const geometry = useMemo(
     () => ({
-      trunk: new THREE.CylinderGeometry(0.3, 0.45, 2.2, 6),
-      foliageMain: new THREE.ConeGeometry(1.5, 2.6, 7),
-      foliageTop: new THREE.ConeGeometry(1.05, 2, 7),
       rock: new THREE.DodecahedronGeometry(1.1, 0),
-      bush: new THREE.SphereGeometry(1, 7, 6),
       log: new THREE.CylinderGeometry(0.35, 0.35, 1, 8),
     }),
     [],
@@ -289,23 +350,11 @@ export default function GameMap() {
   const materials = useMemo(
     () => ({
       ground: new THREE.MeshStandardMaterial({ color: '#78C850', roughness: 0.96, metalness: 0 }),
-      trunk: new THREE.MeshStandardMaterial({ color: '#7A4B2C', roughness: 0.94, metalness: 0.02 }),
-      foliage: [
-        new THREE.MeshStandardMaterial({ color: '#4A9C45', roughness: 0.92, metalness: 0 }),
-        new THREE.MeshStandardMaterial({ color: '#59A74F', roughness: 0.92, metalness: 0 }),
-        new THREE.MeshStandardMaterial({ color: '#3F8A3F', roughness: 0.92, metalness: 0 }),
-        new THREE.MeshStandardMaterial({ color: '#67B357', roughness: 0.92, metalness: 0 }),
-      ],
       rock: [
         new THREE.MeshStandardMaterial({ color: '#8F8A80', roughness: 0.9, metalness: 0.04 }),
         new THREE.MeshStandardMaterial({ color: '#9D968A', roughness: 0.9, metalness: 0.04 }),
         new THREE.MeshStandardMaterial({ color: '#7E7B72', roughness: 0.9, metalness: 0.04 }),
         new THREE.MeshStandardMaterial({ color: '#8B8171', roughness: 0.9, metalness: 0.04 }),
-      ],
-      bush: [
-        new THREE.MeshStandardMaterial({ color: '#2F7E3A', roughness: 0.93, metalness: 0 }),
-        new THREE.MeshStandardMaterial({ color: '#3A8B46', roughness: 0.93, metalness: 0 }),
-        new THREE.MeshStandardMaterial({ color: '#286F34', roughness: 0.93, metalness: 0 }),
       ],
       log: new THREE.MeshStandardMaterial({ color: '#8D5A35', roughness: 0.94, metalness: 0.02 }),
       boundary: new THREE.MeshStandardMaterial({ color: '#5D8D43', roughness: 1, metalness: 0 }),
@@ -369,46 +418,9 @@ export default function GameMap() {
         <meshStandardMaterial color="#8FD36A" roughness={0.95} metalness={0} />
       </mesh>
 
-      {treePoints.map((point, index) => {
-        const trunkHeight = 2.2 * point.scale;
-        const foliageBaseY = trunkHeight + 0.5;
-
-        return (
-          <RigidBody
-            key={`tree-${index}`}
-            type="fixed"
-            colliders={false}
-            position={[point.x, 0, point.z]}
-            rotation={[point.tiltX, point.rotation, point.tiltZ]}
-          >
-            <CuboidCollider args={[0.35 * point.scale, trunkHeight * 0.5, 0.35 * point.scale]} position={[0, trunkHeight * 0.5, 0]} />
-            <mesh
-              geometry={geometry.trunk}
-              material={materials.trunk}
-              castShadow
-              receiveShadow
-              position={[0, trunkHeight * 0.5, 0]}
-              scale={[point.scale, point.scale, point.scale]}
-            />
-            <mesh
-              geometry={geometry.foliageMain}
-              material={materials.foliage[point.variant]}
-              castShadow
-              receiveShadow
-              position={[0, foliageBaseY, 0]}
-              scale={[point.scale, point.scale, point.scale]}
-            />
-            <mesh
-              geometry={geometry.foliageTop}
-              material={materials.foliage[(point.variant + 1) % materials.foliage.length]}
-              castShadow
-              receiveShadow
-              position={[0, foliageBaseY + 1.1 * point.scale, 0]}
-              scale={[point.scale * 0.85, point.scale * 0.9, point.scale * 0.85]}
-            />
-          </RigidBody>
-        );
-      })}
+      {treePoints.map((point, index) => (
+        <QuaterniusTree key={`tree-${index}`} point={point} />
+      ))}
 
       {rockPoints.map((point, index) => {
         const rockScale = point.scale;
@@ -432,21 +444,9 @@ export default function GameMap() {
         );
       })}
 
-      {bushPoints.map((point, index) => {
-        const bushScale = point.scale;
-        return (
-          <RigidBody key={`bush-${index}`} type="fixed" colliders={false} position={[point.x, bushScale * 0.48, point.z]}>
-            <CuboidCollider args={[0.75 * bushScale, 0.45 * bushScale, 0.75 * bushScale]} />
-            <mesh
-              geometry={geometry.bush}
-              material={materials.bush[point.variant]}
-              castShadow
-              receiveShadow
-              scale={[bushScale * 1.05, bushScale * 0.7, bushScale * 1.05]}
-            />
-          </RigidBody>
-        );
-      })}
+      {bushPoints.map((point, index) => (
+        <QuaterniusBush key={`bush-${index}`} point={point} />
+      ))}
 
       {logPoints.map((log, index) => (
         <RigidBody key={`log-${index}`} type="fixed" colliders={false} position={[log.x, log.radius + 0.04, log.z]} rotation={[0, log.rotationY, log.tiltZ]}>
@@ -466,3 +466,10 @@ export default function GameMap() {
     </group>
   );
 }
+
+useGLTF.preload('/models/nature/BirchTree_1.glb');
+useGLTF.preload('/models/nature/BirchTree_2.glb');
+useGLTF.preload('/models/nature/BirchTree_3.glb');
+useGLTF.preload('/models/nature/Bush.glb');
+useGLTF.preload('/models/nature/Bush_Large.glb');
+useGLTF.preload('/models/nature/Bush_Small.glb');
