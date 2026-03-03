@@ -9,9 +9,9 @@ const DEFAULT_MAP_ID = 'nature';
 const PREP_TIME = 15;
 const HUNT_TIME = 180;
 const BASE_RATE = 0.75;
-const MAX_RANGE = 80;
-const MAP_HALF_EXTENT = 80;
-const SPAWN_EDGE_BAND = 8;
+const MAX_RANGE = 50;
+const MAP_HALF_EXTENT = 50;
+const SPAWN_EDGE_BAND = 5;
 const SPAWN_HEIGHT = 1.1;
 
 const speciesStats = {

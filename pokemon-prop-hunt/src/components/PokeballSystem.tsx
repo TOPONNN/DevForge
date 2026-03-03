@@ -1,21 +1,12 @@
 import { Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
 import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 import { soundManager } from '../systems/sound';
 import type { ActivePokeball, ThrowData, Vector3Tuple } from '../types/game';
-
-const POKEBALL_MODEL_PATH = '/models/pokeball.glb';
-
-type GLTFAsset = {
-  scene: THREE.Group;
-  nodes: Record<string, THREE.Object3D>;
-  materials: Record<string, THREE.Material | THREE.Material[]>;
-};
 
 function ProceduralPokeballMesh() {
   return (
@@ -40,38 +31,6 @@ function ProceduralPokeballMesh() {
         <cylinderGeometry args={[0.03, 0.03, 0.022, 16]} />
         <meshStandardMaterial color="#F8F9FA" />
       </mesh>
-    </group>
-  );
-}
-
-function PokeballModelMesh() {
-  const { scene } = useGLTF(POKEBALL_MODEL_PATH) as GLTFAsset;
-
-  const modelAsset = useMemo(() => {
-    const clone = scene.clone(true);
-    const bounds = new THREE.Box3().setFromObject(clone);
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-
-    clone.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-      }
-    });
-
-    const normalizedScale = 0.4 / 200;
-
-    return {
-      clone,
-      center,
-      normalizedScale,
-    };
-  }, [scene]);
-
-  return (
-    <group scale={modelAsset.normalizedScale}>
-      <primitive object={modelAsset.clone} position={[-modelAsset.center.x, -modelAsset.center.y, -modelAsset.center.z]} />
     </group>
   );
 }
@@ -116,9 +75,7 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
       gravityScale={1}
     >
       <BallCollider args={[0.2]} />
-      <Suspense fallback={<ProceduralPokeballMesh />}>
-        <PokeballModelMesh />
-      </Suspense>
+      <ProceduralPokeballMesh />
     </RigidBody>
   );
 }
@@ -256,5 +213,3 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
     </>
   );
 }
-
-useGLTF.preload(POKEBALL_MODEL_PATH);

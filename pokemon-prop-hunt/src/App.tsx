@@ -57,6 +57,18 @@ function App() {
     }
   }, [huntTime, phase, setPhase, setTimeLeft, timeLeft]);
 
+  useEffect(() => {
+    if (phase === 'preparing' || phase === 'hunting') {
+      soundManager.startBGM();
+    } else {
+      soundManager.stopBGM();
+    }
+
+    return () => {
+      soundManager.stopBGM();
+    };
+  }, [phase]);
+
   const requestPointerLock = () => {
     if (phase === 'lobby' || phase === 'selecting') {
       return;

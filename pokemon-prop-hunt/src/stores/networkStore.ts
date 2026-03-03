@@ -217,12 +217,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           break;
         }
         case 'phase_change': {
-          if (parsed.data.phase === 'hunting') {
-            soundManager.play('round_start');
-          }
-          if (parsed.data.phase === 'ended') {
-            soundManager.play('round_end');
-          }
           useGameStore.setState({ phase: parsed.data.phase, timeLeft: parsed.data.timer });
           break;
         }
@@ -359,12 +353,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           break;
         }
         case 'phase_change': {
-          if (parsed.data.phase === 'hunting') {
-            soundManager.play('round_start');
-          }
-          if (parsed.data.phase === 'ended') {
-            soundManager.play('round_end');
-          }
           useGameStore.setState({ phase: parsed.data.phase, timeLeft: parsed.data.timer });
           break;
         }
@@ -475,12 +463,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           break;
         }
         case 'phase_change': {
-          if (parsed.data.phase === 'hunting') {
-            soundManager.play('round_start');
-          }
-          if (parsed.data.phase === 'ended') {
-            soundManager.play('round_end');
-          }
           useGameStore.setState({ phase: parsed.data.phase, timeLeft: parsed.data.timer });
           break;
         }
