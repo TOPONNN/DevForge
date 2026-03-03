@@ -1,19 +1,47 @@
-version: "3.8"
-
 services:
-  frontend:
+  # ── MySQL Database ──
+  mysql:
+    image: mysql:8.0
+    container_name: pokemon-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass1234
+      MYSQL_DATABASE: pokemon_prophunt
+      MYSQL_USER: pokemon
+      MYSQL_PASSWORD: pokemon1234
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - pokemon-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "pokemon", "-ppokemon1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend API ──
+  backend:
     build:
-      context: ./pokemon-prop-hunt
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: pokemon-frontend
+    container_name: pokemon-backend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "8080:8080"
     depends_on:
-      - ws-server
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pokemon_prophunt?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: pokemon
+      SPRING_DATASOURCE_PASSWORD: pokemon1234
     networks:
       - pokemon-net
 
+  # ── Node.js WebSocket Game Server ──
   ws-server:
     build:
       context: ./pokemon-prop-hunt/server
@@ -24,6 +52,25 @@ services:
       - "3001:3001"
     networks:
       - pokemon-net
+
+  # ── React Frontend (Nginx) ──
+  frontend:
+    build:
+      context: ./pokemon-prop-hunt
+      dockerfile: Dockerfile
+    container_name: pokemon-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - ws-server
+      - backend
+    networks:
+      - pokemon-net
+
+volumes:
+  mysql-data:
+    driver: local
 
 networks:
   pokemon-net:

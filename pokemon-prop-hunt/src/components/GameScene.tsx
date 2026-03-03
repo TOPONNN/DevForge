@@ -1,5 +1,6 @@
 import { AdaptiveDpr, AdaptiveEvents, Stats } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Physics } from '@react-three/rapier';
 import { useEffect } from 'react';
 import * as THREE from 'three';
@@ -28,7 +29,7 @@ function CameraSetup() {
   }, [camera]);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog('#A8E8FF', 60, 250);
+    scene.fog = new THREE.Fog('#D4E8C2', 40, 180);
     return () => {
       scene.fog = null;
     };
@@ -89,7 +90,7 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
       camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
-      <color attach="background" args={['#99E6FF']} />
+      <color attach="background" args={['#87CEEB']} />
       <CameraSetup />
 
       <Physics gravity={[0, -20, 0]} interpolate>
@@ -100,6 +101,9 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
       </Physics>
 
       <CatchAnimation />
+      <EffectComposer>
+        <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
+      </EffectComposer>
       <AdaptiveDpr pixelated />
       <AdaptiveEvents />
       {showFps ? <Stats className="fps-counter" showPanel={0} /> : null}
