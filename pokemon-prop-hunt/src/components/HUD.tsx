@@ -4,12 +4,16 @@ import { useNetworkStore } from '../stores/networkStore';
 
 const KOREAN_NAMES: Record<string, string> = {
   Pikachu: '피카츄', Charmander: '파이리', Bulbasaur: '이상해씨', Squirtle: '꼬부기',
-  Eevee: '이브이', Snorlax: '잠만보', Gengar: '팬텀', Jigglypuff: '푸린',
+  Eevee: '이브이', Snorlax: '잠만보', Jigglypuff: '푸린',
+  Mew: '뮤', Magikarp: '잉어킹', Marill: '마릴', Porygon: '폴리곤',
+  Magnemite: '코일', Bellsprout: '모다피',
 };
 
 const SPECIES_COLORS: Record<string, string> = {
   Pikachu: '#FFD60A', Charmander: '#F77F00', Bulbasaur: '#2A9D8F', Squirtle: '#5FA8D3',
-  Eevee: '#B08968', Snorlax: '#4D908E', Gengar: '#4361EE', Jigglypuff: '#F6BDC0',
+  Eevee: '#B08968', Snorlax: '#4D908E', Jigglypuff: '#F6BDC0',
+  Mew: '#F0A1C8', Magikarp: '#E85D3A', Marill: '#5B9BD5', Porygon: '#E07B9E',
+  Magnemite: '#A8B8C8', Bellsprout: '#8BC34A',
 };
 
 const formatTime = (time: number) => {

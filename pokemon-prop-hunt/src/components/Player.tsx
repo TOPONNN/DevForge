@@ -168,7 +168,7 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       ref={bodyRef}
       colliders={false}
       enabledRotations={[false, false, false]}
-      position={[0, 1.1, 12]}
+      position={[0, 1.1, 8]}
       mass={1}
       friction={0}
       linearDamping={8}

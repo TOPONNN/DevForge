@@ -73,7 +73,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   escaping: false,
   dodgeCooldown: 0,
   isCaught: false,
-  localPosition: [0, 1.1, 12],
+  localPosition: [0, 1.1, 8],
   localRotation: [0, 0, 0],
 
   startCharge: () => {

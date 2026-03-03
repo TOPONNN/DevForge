@@ -7,8 +7,13 @@ const KOREAN_NAMES: Record<string, string> = {
   Squirtle: '꼬부기',
   Eevee: '이브이',
   Snorlax: '잠만보',
-  Gengar: '팬텀',
   Jigglypuff: '푸린',
+  Mew: '뮤',
+  Magikarp: '잉어킹',
+  Marill: '마릴',
+  Porygon: '폴리곤',
+  Magnemite: '코일',
+  Bellsprout: '모다피',
 };
 
 interface PokemonSelectProps {
@@ -43,13 +48,8 @@ export default function PokemonSelect({ selectedSpecies, onSelect }: PokemonSele
             onClick={() => onSelect(species)}
           >
             <div className="pokemon-card-top">
-              <span
-                className="pokemon-card-avatar"
-                style={{
-                  background: `linear-gradient(135deg, ${species.color}, ${species.color}88)`,
-                }}
-              >
-                {species.name.charAt(0)}
+              <span className="pokemon-card-avatar">
+                <img src={`/icons/${species.name.toLowerCase()}.svg`} alt={species.name} />
               </span>
               <div className="pokemon-card-info">
                 <span className="pokemon-card-name">{krName}</span>

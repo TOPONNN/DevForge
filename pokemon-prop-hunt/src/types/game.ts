@@ -23,8 +23,13 @@ export const POKEMON_SPECIES: PokemonSpecies[] = [
   { name: 'Squirtle', speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#5FA8D3', modelScale: 0.95 },
   { name: 'Eevee', speed: 7, catchDifficulty: 0.35, size: 'small', color: '#B08968', modelScale: 0.85 },
   { name: 'Snorlax', speed: 2.5, catchDifficulty: 0.7, size: 'large', color: '#4D908E', modelScale: 1.45 },
-  { name: 'Gengar', speed: 5.5, catchDifficulty: 0.3, size: 'medium', color: '#4361EE', modelScale: 1.05 },
   { name: 'Jigglypuff', speed: 4, catchDifficulty: 0.6, size: 'small', color: '#F6BDC0', modelScale: 0.85 },
+  { name: 'Mew', speed: 6.5, catchDifficulty: 0.25, size: 'small', color: '#F0A1C8', modelScale: 0.9 },
+  { name: 'Magikarp', speed: 3, catchDifficulty: 0.8, size: 'small', color: '#E85D3A', modelScale: 0.9 },
+  { name: 'Marill', speed: 4.5, catchDifficulty: 0.55, size: 'small', color: '#5B9BD5', modelScale: 0.9 },
+  { name: 'Porygon', speed: 5, catchDifficulty: 0.45, size: 'small', color: '#E07B9E', modelScale: 0.9 },
+  { name: 'Magnemite', speed: 5.5, catchDifficulty: 0.4, size: 'small', color: '#A8B8C8', modelScale: 0.9 },
+  { name: 'Bellsprout', speed: 4, catchDifficulty: 0.6, size: 'small', color: '#8BC34A', modelScale: 0.95 },
 ];
 
 export interface Player {

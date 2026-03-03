@@ -12,8 +12,13 @@ const MODEL_MAP: Record<string, string> = {
   Squirtle: '/models/squirtle.glb',
   Eevee: '/models/eevee.glb',
   Snorlax: '/models/snorlax.glb',
-  Gengar: '/models/gengar.glb',
   Jigglypuff: '/models/jigglypuff.glb',
+  Mew: '/models/mew.glb',
+  Magikarp: '/models/magikarp.glb',
+  Marill: '/models/marill.glb',
+  Porygon: '/models/porygon.glb',
+  Magnemite: '/models/magnemite.glb',
+  Bellsprout: '/models/bellsprout.glb',
 };
 
 const TARGET_HEIGHTS: Record<string, number> = {
@@ -23,8 +28,13 @@ const TARGET_HEIGHTS: Record<string, number> = {
   Squirtle: 1.0,
   Eevee: 0.9,
   Snorlax: 1.8,
-  Gengar: 1.2,
   Jigglypuff: 0.8,
+  Mew: 0.9,
+  Magikarp: 0.8,
+  Marill: 0.7,
+  Porygon: 0.9,
+  Magnemite: 0.7,
+  Bellsprout: 1.0,
 };
 
 type GLTFAsset = {
@@ -100,11 +110,14 @@ function PokemonBody({ species }: { species: PokemonSpecies }) {
   if (species.name === 'Snorlax') {
     return <capsuleGeometry args={[0.7 * species.modelScale, 1 * species.modelScale, 12, 18]} />;
   }
-  if (species.name === 'Charmander') {
+  if (species.name === 'Charmander' || species.name === 'Bellsprout') {
     return <capsuleGeometry args={[0.45 * species.modelScale, 0.85 * species.modelScale, 10, 16]} />;
   }
-  if (species.name === 'Bulbasaur' || species.name === 'Squirtle' || species.name === 'Gengar') {
+  if (species.name === 'Bulbasaur' || species.name === 'Squirtle' || species.name === 'Marill') {
     return <dodecahedronGeometry args={[0.62 * species.modelScale, 0]} />;
+  }
+  if (species.name === 'Porygon' || species.name === 'Magnemite') {
+    return <dodecahedronGeometry args={[0.5 * species.modelScale, 1]} />;
   }
   return <sphereGeometry args={[0.56 * species.modelScale, 24, 24]} />;
 }
@@ -236,5 +249,10 @@ useGLTF.preload('/models/bulbasaur.glb');
 useGLTF.preload('/models/squirtle.glb');
 useGLTF.preload('/models/eevee.glb');
 useGLTF.preload('/models/snorlax.glb');
-useGLTF.preload('/models/gengar.glb');
 useGLTF.preload('/models/jigglypuff.glb');
+useGLTF.preload('/models/mew.glb');
+useGLTF.preload('/models/magikarp.glb');
+useGLTF.preload('/models/marill.glb');
+useGLTF.preload('/models/porygon.glb');
+useGLTF.preload('/models/magnemite.glb');
+useGLTF.preload('/models/bellsprout.glb');
