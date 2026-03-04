@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 import PokemonSelect from './PokemonSelect';
+import LobbyBackground3D from './LobbyBackground3D';
 import type { PokemonSpecies } from '../types/game';
 
 const CHANNELS = [
@@ -141,253 +142,237 @@ export default function LobbyScreen() {
   // ── MAIN SCREEN ──────────────────────────────────────────────
   if (!isConnected && view === 'main') {
     return (
-      <section
-        className="lobby-screen"
-        style={{
-          backgroundImage: "url('/images/background-main.png')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-        }}
-      >
-        <p className="main-subtitle">숨어라! 잡아라! 포켓몬 숨바꼭질</p>
-        <h1 className="main-title">포켓몬 숨바꼭질</h1>
-        <div className="lobby-guest-btn-wrap">
-          <button
-            type="button"
-            className="lobby-guest-btn btn-animation"
-            onClick={() => setView('nickname')}
-          >
-            Guest
-          </button>
-        </div>
-      </section>
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen">
+          <p className="main-subtitle">숨어라! 잡아라! 포켓몬 숨바꼭질</p>
+          <h1 className="main-title">포켓몬 숨바꼭질</h1>
+          <div className="lobby-guest-btn-wrap">
+            <button
+              type="button"
+              className="lobby-guest-btn btn-animation"
+              onClick={() => setView('nickname')}
+            >
+              Guest
+            </button>
+          </div>
+        </section>
+      </>
     );
   }
 
   // ── NICKNAME SCREEN ─────────────────────────────────────────
   if (!isConnected && view === 'nickname') {
     return (
-      <section
-        className="lobby-screen"
-        style={{
-          backgroundImage: "url('/images/background-main.png')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-        }}
-      >
-        <div className="login-panel">
-          <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
-          <div className="login-nickname-row">
-            <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
-            <input
-              className="login-nickname-input"
-              type="text"
-              value={name}
-              placeholder=""
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleGoToChannels();
-              }}
-            />
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen">
+          <div className="login-panel">
+            <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
+            <div className="login-nickname-row">
+              <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
+              <input
+                className="login-nickname-input"
+                type="text"
+                value={name}
+                placeholder=""
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGoToChannels();
+                }}
+              />
+            </div>
+            <div className="login-submit-wrap">
+              <button
+                type="button"
+                className="lobby-guest-btn btn-animation"
+                onClick={handleGoToChannels}
+              >
+                Guest
+              </button>
+            </div>
           </div>
-          <div className="login-submit-wrap">
-            <button
-              type="button"
-              className="lobby-guest-btn btn-animation"
-              onClick={handleGoToChannels}
-            >
-              Guest
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
+      </>
     );
   }
 
   // ── CHANNEL SELECT ──────────────────────────────────────────
   if (!isConnected && view === 'channels') {
     return (
-      <section
-        className="lobby-screen"
-        style={{
-          backgroundImage: "url('/images/background-main.png')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-        }}
-      >
-        <div className="channel-outer-panel">
-          <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
-          <div className="channel-grid">
-            {CHANNELS.map((ch) => (
-              <div
-                key={ch.id}
-                className="channel-card"
-                onClick={() => handleSelectChannel(ch.id)}
-              >
-                <p className="channel-card-name">{ch.name}</p>
-                <p className="channel-card-count">0/100</p>
-              </div>
-            ))}
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen">
+          <div className="channel-outer-panel">
+            <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
+            <div className="channel-grid">
+              {CHANNELS.map((ch) => (
+                <div
+                  key={ch.id}
+                  className="channel-card"
+                  onClick={() => handleSelectChannel(ch.id)}
+                >
+                  <p className="channel-card-name">{ch.name}</p>
+                  <p className="channel-card-count">0/100</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </>
     );
   }
 
   // ── ROOM LIST ───────────────────────────────────────────────
   if (!isConnected && view === 'rooms') {
     return (
-      <section
-        className="lobby-screen"
-        style={{
-          backgroundImage: "url('/images/background-main.png')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-        }}
-      >
-        <div className="room-list-outer">
-          {/* Sidebar */}
-          <div className="room-list-sidebar">
-            <p
-              className="sidebar-btn"
-              onClick={handleBackToChannels}
-            >
-              ← 채널선택
-            </p>
-            <p
-              className="sidebar-btn"
-              onClick={changeMakeRoomFlag}
-            >
-              방 만들기
-            </p>
-          </div>
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen">
+          <div className="room-list-outer">
+            {/* Sidebar */}
+            <div className="room-list-sidebar">
+              <p
+                className="sidebar-btn"
+                onClick={handleBackToChannels}
+              >
+                ← 채널선택
+              </p>
+              <p
+                className="sidebar-btn"
+                onClick={changeMakeRoomFlag}
+              >
+                방 만들기
+              </p>
+            </div>
 
-          {/* Room Cards */}
-          <div className="room-list-main">
-            {rooms.length === 0 ? (
-              <div className="room-empty">
-                <p>방이 없습니다. 방을 만들어보세요!</p>
-              </div>
-            ) : (
-              rooms.map((room, index) => (
-                <div
-                  key={room.roomCode}
-                  className="room-card"
-                  onClick={() => handleRoomCardClick(room)}
-                >
-                  <div className="room-card-thumb">
-                    <img className="room-card-thumb-img" src="/images/map-Rich.png" alt="" />
-                  </div>
-                  <div className="room-card-info">
-                    <div className="room-card-title-row">
-                      <div className="room-card-title-text">
-                        <p className="room-card-name">
-                          {index + 1}.{room.roomName}
-                        </p>
-                        {room.locked && (
-                          <img className="room-card-lock-icon" src="/images/icon_lobby_lock.png" alt="" />
+            {/* Room Cards */}
+            <div className="room-list-main">
+              {rooms.length === 0 ? (
+                <div className="room-empty">
+                  <p>방이 없습니다. 방을 만들어보세요!</p>
+                </div>
+              ) : (
+                rooms.map((room, index) => (
+                  <div
+                    key={room.roomCode}
+                    className="room-card"
+                    onClick={() => handleRoomCardClick(room)}
+                  >
+                    <div className="room-card-thumb">
+                      <img className="room-card-thumb-img" src="/images/map-Rich.png" alt="" />
+                    </div>
+                    <div className="room-card-info">
+                      <div className="room-card-title-row">
+                        <div className="room-card-title-text">
+                          <p className="room-card-name">
+                            {index + 1}.{room.roomName}
+                          </p>
+                          {room.locked && (
+                            <img className="room-card-lock-icon" src="/images/icon_lobby_lock.png" alt="" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="room-card-bottom">
+                        {room.status === '게임중' ? (
+                          <img src="/images/text_lobby_game.png" className="room-status-img" alt="" />
+                        ) : (
+                          <img src="/images/text_lobby_wait.png" className="room-status-img" alt="" />
                         )}
+                        <p className="room-players-count">{room.current}/{room.max}</p>
                       </div>
                     </div>
-                    <div className="room-card-bottom">
-                      {room.status === '게임중' ? (
-                        <img src="/images/text_lobby_game.png" className="room-status-img" alt="" />
-                      ) : (
-                        <img src="/images/text_lobby_wait.png" className="room-status-img" alt="" />
-                      )}
-                      <p className="room-players-count">{room.current}/{room.max}</p>
-                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Create Room Modal */}
+          {showCreateModal && (
+            <div className="modal-overlay-ref">
+              <div className="modal-panel-ref">
+                <p className="modal-title-ref">방 만들기</p>
+                <div className="modal-field-ref">
+                  <p className="modal-label-ref">방 이름 : </p>
+                  <input
+                    className="modal-input-ref"
+                    type="text"
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                  />
+                </div>
+                <div className="modal-field-ref">
+                  <p className="modal-label-ref">방 비밀번호 : </p>
+                  <input
+                    className="modal-input-ref"
+                    type="password"
+                    value={newRoomPw}
+                    onChange={(e) => setNewRoomPw(e.target.value)}
+                  />
+                </div>
+                <div className="modal-checkbox-row">
+                  <p>비밀방</p>
+                  <div
+                    className={`modal-checkbox ${!newRoomIsPublic ? 'checked' : ''}`}
+                    onClick={() => setNewRoomIsPublic(!newRoomIsPublic)}
+                  />
+                </div>
+                <div className="modal-field-ref">
+                  <p className="modal-label-ref">최대 인원</p>
+                  <div className="modal-maxplayer-group">
+                    {MAX_PLAYER_OPTS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`modal-maxplayer-btn ${newMaxPlayers === n ? 'active' : ''}`}
+                        onClick={() => setNewMaxPlayers(n)}
+                      >
+                        {n}명
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Create Room Modal */}
-        {showCreateModal && (
-          <div className="modal-overlay-ref">
-            <div className="modal-panel-ref">
-              <p className="modal-title-ref">방 만들기</p>
-              <div className="modal-field-ref">
-                <p className="modal-label-ref">방 이름 : </p>
-                <input
-                  className="modal-input-ref"
-                  type="text"
-                  value={newRoomName}
-                  onChange={(e) => setNewRoomName(e.target.value)}
-                />
+                <div className="modal-actions-ref">
+                  <div className="modal-action-btn" onClick={handleCreateSubmit}>
+                    <p>방 만들기</p>
+                  </div>
+                  <div className="modal-action-btn" onClick={changeMakeRoomFlag}>
+                    <p>취소</p>
+                  </div>
+                </div>
               </div>
-              <div className="modal-field-ref">
-                <p className="modal-label-ref">방 비밀번호 : </p>
+            </div>
+          )}
+
+          {/* Password Prompt */}
+          {pwPrompt.show && (
+            <div className="modal-overlay-ref">
+              <div className="modal-panel-ref modal-pw">
+                <p className="modal-title-ref">비밀번호입력</p>
                 <input
-                  className="modal-input-ref"
+                  className="modal-pw-input"
                   type="password"
-                  value={newRoomPw}
-                  onChange={(e) => setNewRoomPw(e.target.value)}
+                  value={pwInput}
+                  placeholder=""
+                  onChange={(e) => setPwInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePwSubmit();
+                  }}
                 />
-              </div>
-              <div className="modal-checkbox-row">
-                <p>비밀방</p>
-                <div
-                  className={`modal-checkbox ${!newRoomIsPublic ? 'checked' : ''}`}
-                  onClick={() => setNewRoomIsPublic(!newRoomIsPublic)}
-                />
-              </div>
-              <div className="modal-field-ref">
-                <p className="modal-label-ref">최대 인원</p>
-                <div className="modal-maxplayer-group">
-                  {MAX_PLAYER_OPTS.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={`modal-maxplayer-btn ${newMaxPlayers === n ? 'active' : ''}`}
-                      onClick={() => setNewMaxPlayers(n)}
-                    >
-                      {n}명
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="modal-actions-ref">
-                <div className="modal-action-btn" onClick={handleCreateSubmit}>
-                  <p>방 만들기</p>
-                </div>
-                <div className="modal-action-btn" onClick={changeMakeRoomFlag}>
-                  <p>취소</p>
+                <div className="modal-actions-ref">
+                  <div className="modal-action-btn" onClick={handlePwSubmit}>
+                    <p>방 입장하기</p>
+                  </div>
+                  <div className="modal-action-btn" onClick={() => setPwPrompt({ roomCode: '', show: false })}>
+                    <p>취소하기</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Password Prompt */}
-        {pwPrompt.show && (
-          <div className="modal-overlay-ref">
-            <div className="modal-panel-ref modal-pw">
-              <p className="modal-title-ref">비밀번호입력</p>
-              <input
-                className="modal-pw-input"
-                type="password"
-                value={pwInput}
-                placeholder=""
-                onChange={(e) => setPwInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handlePwSubmit();
-                }}
-              />
-              <div className="modal-actions-ref">
-                <div className="modal-action-btn" onClick={handlePwSubmit}>
-                  <p>방 입장하기</p>
-                </div>
-                <div className="modal-action-btn" onClick={() => setPwPrompt({ roomCode: '', show: false })}>
-                  <p>취소하기</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      </>
     );
   }
 
@@ -396,14 +381,9 @@ export default function LobbyScreen() {
   const totalCount = connectedPlayers.length;
 
   return (
-    <section
-      className="lobby-screen"
-      style={{
-        backgroundImage: "url('/images/background-main.png')",
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-      }}
-    >
+    <>
+      <LobbyBackground3D />
+      <section className="lobby-screen">
       <div className="room-detail-panel">
         <div className="room-detail-header">
           <h1 className="room-detail-title">포켓몬 숨바꼭질</h1>
@@ -536,5 +516,6 @@ export default function LobbyScreen() {
         </div>
       </div>
     </section>
+    </>
   );
 }

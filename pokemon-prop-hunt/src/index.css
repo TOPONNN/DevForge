@@ -326,6 +326,21 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 /* ============================================================
+   3D LOBBY BACKGROUND
+   ============================================================ */
+.lobby-3d-background {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.lobby-3d-background canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+
+/* ============================================================
    LOBBY SCREEN — Reference S10P31A709 Exact Replica
    ============================================================ */
 
@@ -350,7 +365,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   position: absolute; inset: 0; z-index: 50; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: 'DNFBitBitv2', 'Jua', sans-serif;
-  background-size: cover; background-position: center; background-repeat: no-repeat;
+  background: radial-gradient(ellipse at 50% 30%, rgba(10, 5, 32, 0.45), rgba(5, 2, 16, 0.7));
 }
 
 /* ===== MAIN SCREEN ===== */
