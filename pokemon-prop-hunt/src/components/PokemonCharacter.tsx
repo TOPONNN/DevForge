@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { SkeletonUtils } from 'three-stdlib';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
@@ -43,11 +43,6 @@ const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }
   Blastoise: { idle: 'waitA01', walk: 'walk01' },
 };
 
-type GLTFAsset = {
-  scene: THREE.Group;
-  animations: THREE.AnimationClip[];
-};
-
 function PokemonModelGLTF({
   species,
   modelPath,
@@ -58,28 +53,43 @@ function PokemonModelGLTF({
   isMoving: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(modelPath) as GLTFAsset;
+  const { scene, animations } = useGLTF(modelPath);
 
-  // Use SkeletonUtils.clone to properly clone SkinnedMesh with bone references
+  // Clone scene using SkeletonUtils from three-stdlib (same as drei uses)
+  // This properly handles SkinnedMesh bone references
   const { clonedScene, normalizedScale, minY, center } = useMemo(() => {
-    const cloned = skeletonClone(scene);
+    const cloned = SkeletonUtils.clone(scene);
 
-    cloned.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-        if (Array.isArray(object.material)) {
-          object.material = object.material.map((mat: THREE.Material) => mat.clone());
-        } else {
-          object.material = object.material.clone();
+    // Use .isMesh instead of instanceof (avoids issues with multiple three.js copies in bundle)
+    cloned.traverse((child: THREE.Object3D) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        const mesh = child as THREE.Mesh;
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map((mat) => mat.clone());
+        } else if (mesh.material) {
+          mesh.material = mesh.material.clone();
         }
       }
     });
 
+    // Compute bounds safely — SkinnedMesh bounds can be empty/incorrect
     const bounds = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
-    bounds.getSize(size);
     const ctr = new THREE.Vector3();
+
+    // Safety: if bounds are empty or degenerate, use defaults
+    if (bounds.isEmpty() || !isFinite(bounds.min.x)) {
+      return {
+        clonedScene: cloned,
+        normalizedScale: species.modelScale,
+        minY: 0,
+        center: new THREE.Vector3(0, 0, 0),
+      };
+    }
+
+    bounds.getSize(size);
     bounds.getCenter(ctr);
 
     const actualHeight = size.y;
@@ -89,18 +99,14 @@ function PokemonModelGLTF({
 
     return {
       clonedScene: cloned,
-      normalizedScale: scale,
-      minY: bounds.min.y,
+      normalizedScale: isFinite(scale) ? scale : species.modelScale,
+      minY: isFinite(bounds.min.y) ? bounds.min.y : 0,
       center: ctr,
     };
   }, [scene, species.modelScale, species.name]);
 
-  // Clone animation clips so they work with the cloned skeleton
-  const clonedAnimations = useMemo(() => {
-    return animations.map((clip) => clip.clone());
-  }, [animations]);
-
-  const { actions } = useAnimations(clonedAnimations, group);
+  // Don't clone animation clips — share originals, only mixer/actions are per-instance
+  const { actions } = useAnimations(animations, group);
   const animMap = ANIMATION_MAP[species.name];
 
   useEffect(() => {
@@ -158,7 +164,7 @@ function PokemonBody({ species }: { species: PokemonSpecies }) {
   return <sphereGeometry args={[0.56 * species.modelScale, 24, 24]} />;
 }
 
-// Lerp factor for smooth position interpolation (per frame)
+// Lerp factor for smooth position interpolation
 const POSITION_LERP_FACTOR = 0.15;
 
 export default function PokemonCharacter({
@@ -175,9 +181,7 @@ export default function PokemonCharacter({
   const groupRef = useRef<THREE.Group | null>(null);
   const bodyRef = useRef<THREE.Group | null>(null);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
-  // Store target position for interpolation
   const targetPositionRef = useRef(new THREE.Vector3(position[0], position[1], position[2]));
-  // Track if this is the first frame (skip lerp on initial placement)
   const initializedRef = useRef(false);
 
   const trailOffsets = useMemo(
@@ -198,22 +202,20 @@ export default function PokemonCharacter({
 
     const t = clock.getElapsedTime();
 
-    // Update target position from network data (no bobbing — characters stay grounded)
+    // Update target position — no bobbing, stay grounded
     targetPositionRef.current.set(position[0], position[1], position[2]);
 
     if (!initializedRef.current) {
-      // First frame: snap to position immediately
       group.position.copy(targetPositionRef.current);
       initializedRef.current = true;
     } else {
-      // Smooth interpolation toward target position
       group.position.lerp(targetPositionRef.current, POSITION_LERP_FACTOR);
     }
 
     group.rotation.y = rotation[1];
     group.visible = !isCaught;
 
-    // Subtle body tilt when moving (lean forward slightly)
+    // Subtle body tilt when moving
     body.rotation.z = isMoving ? Math.sin(t * 8) * 0.03 : 0;
     body.rotation.x = isMoving ? -0.06 : 0;
 
@@ -232,12 +234,14 @@ export default function PokemonCharacter({
     }
 
     const materials = new Set<THREE.Material>();
-    body.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) {
+    body.traverse((child: THREE.Object3D) => {
+      // Use .isMesh instead of instanceof
+      if (!(child as THREE.Mesh).isMesh) {
         return;
       }
 
-      const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+      const mesh = child as THREE.Mesh;
+      const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const material of meshMaterials) {
         if (!material || !('opacity' in material)) {
           continue;

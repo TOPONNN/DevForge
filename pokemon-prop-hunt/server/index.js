@@ -1009,7 +1009,7 @@ function tickBotAI(bot, trainers, dt) {
   return { mx, mz };
 }
 
-// Bot tick: 500ms interval
+// Bot tick: 100ms interval for smooth movement
 setInterval(() => {
   for (const room of rooms.values()) {
     if (room.phase !== 'hunting') {
@@ -1020,7 +1020,7 @@ setInterval(() => {
     const bots = [...room.players.values()].filter((p) => p.isBot && p.role === 'pokemon' && !p.isCaught);
 
     for (const bot of bots) {
-      const { mx, mz } = tickBotAI(bot, trainers, 0.5);
+      const { mx, mz } = tickBotAI(bot, trainers, 0.1);
       const x = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[0] + mx));
       const z = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[2] + mz));
       const yaw = Math.atan2(mx, mz);
@@ -1034,7 +1034,7 @@ setInterval(() => {
       });
     }
   }
-}, 500);
+}, 100);
 
 setInterval(() => {
   for (const room of rooms.values()) {
