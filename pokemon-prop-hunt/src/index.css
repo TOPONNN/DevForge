@@ -1,3 +1,9 @@
+@font-face {
+  font-family: 'DNFBitBitv2';
+  font-weight: normal;
+  src: url('/fonts/DNFBitBitv2.ttf') format('truetype');
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&family=Noto+Sans+KR:wght@400;500;700;800&display=swap');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -332,14 +338,15 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 /* Warm, playful background */
 .lobby-bg-warm-gradient {
   position: absolute; inset: 0; z-index: 0;
-  background: radial-gradient(circle at 50% 120%, #ffeaa7 0%, #fab1a0 50%, #e17055 100%);
+  background-image: url('/images/background-main.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .lobby-bg-pattern {
   position: absolute; inset: 0; z-index: 1;
-  background-image: radial-gradient(#d63031 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.15;
+  background: rgba(0, 0, 0, 0.15);
 }
 
 /* Appear animation */
@@ -358,23 +365,23 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .lobby-subtitle {
   font-size: clamp(1.2rem, 2.5vw, 1.6rem);
   color: #fff;
-  font-family: 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
-  text-shadow: 0 2px 4px rgba(214, 48, 49, 0.6);
-  -webkit-text-stroke: 1px #d63031;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  -webkit-text-stroke: 0;
 }
 
 .lobby-title {
-  font-family: 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
   font-size: clamp(4rem, 11vw, 7rem);
-  color: #fff3d6;
+  color: #b67b5a;
   line-height: 1.05;
   margin-bottom: 2rem;
-  -webkit-text-stroke: 3px #8b6b4a;
+  -webkit-text-stroke: 3px #894820;
   text-shadow:
-    4px 4px 0 #8b6b4a,
-    8px 8px 0 #5d4e37,
+    4px 4px 0 #894820,
+    8px 8px 0 #5d3a1a,
     0 15px 30px rgba(0,0,0,0.3);
   text-align: center;
 }
@@ -382,33 +389,81 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .lobby-main-panel {
   display: flex; flex-direction: column; gap: 1rem;
   width: min(340px, 90vw);
-  background: #fff3d6;
+  background: rgba(255, 255, 255, 0.9);
   padding: 1.5rem;
   border-radius: 24px;
-  border: 4px solid #8b6b4a;
-  box-shadow: 0 10px 0 #8b6b4a, 0 20px 40px rgba(0,0,0,0.25);
+  border: 4px solid #b67b5a;
+  box-shadow: 0 10px 0 #894820, 0 20px 40px rgba(0,0,0,0.25);
+  backdrop-filter: blur(8px);
 }
 
 .lobby-name-input {
   width: 100%; padding: 1rem; border-radius: 16px; font-size: 1.15rem;
-  font-family: 'Jua', sans-serif; text-align: center;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; text-align: center;
   background: #fff; border: 3px solid #d1ccc0;
-  color: #5d4e37; outline: none; transition: border-color 200ms;
+  color: #894820; outline: none; transition: border-color 200ms;
 }
 
-.lobby-name-input:focus { border-color: #fab1a0; }
+.lobby-name-input:focus { border-color: #b67b5a; }
 .lobby-name-input::placeholder { color: #d1ccc0; }
 
 .lobby-btn-start {
-  width: 100%; padding: 1rem; border-radius: 16px; border: none;
-  font-family: 'Jua', sans-serif; font-size: 1.4rem; color: #fff;
-  background: #fab1a0; cursor: pointer;
-  box-shadow: 0 6px 0 #e17055;
-  text-shadow: 0 2px 0 rgba(0,0,0,0.1);
-  transition: transform 100ms, box-shadow 100ms;
+  width: 100%; padding: 1rem; border-radius: 16px; border: 3px solid #b67b5a;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.4rem; color: #b67b5a;
+  background: #fff; cursor: pointer;
+  box-shadow: 0 6px 0 #894820;
+  transition: transform 100ms, box-shadow 100ms, background 150ms, color 150ms;
+}
+.lobby-btn-start:hover {
+  background: #b67b5a; color: #fff;
+}
+.lobby-btn-start:active { transform: translateY(6px); box-shadow: 0 0 0 #894820; }
+
+/* NICKNAME SCREEN */
+.lobby-nickname-panel {
+  display: flex; flex-direction: column; gap: 1rem; align-items: center;
+  width: min(500px, 85vw);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 24px;
+  padding: 2.5rem;
+  animation: lobby-appear-warm 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.lobby-btn-start:active { transform: translateY(6px); box-shadow: 0 0 0 #e17055; }
+.lobby-nickname-title {
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  margin-bottom: 0.5rem;
+}
+
+.lobby-nickname-label {
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  color: #ffe8c4;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.lobby-nickname-input {
+  width: min(400px, 70vw); padding: 1rem 1.5rem; border-radius: 16px; font-size: 1.3rem;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; text-align: center;
+  background: #fff; border: 3px solid #b67b5a;
+  color: #894820; outline: none; transition: border-color 200ms;
+}
+.lobby-nickname-input:focus { border-color: #ffe8c4; }
+.lobby-nickname-input::placeholder { color: #d1ccc0; }
+
+.lobby-nickname-submit {
+  padding: 0.8rem 2.5rem; border-radius: 16px; border: 3px solid #b67b5a;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.2rem; color: #b67b5a;
+  background: #fff; cursor: pointer;
+  box-shadow: 0 6px 0 #894820;
+  transition: transform 100ms, box-shadow 100ms, background 150ms, color 150ms;
+}
+.lobby-nickname-submit:hover { background: #b67b5a; color: #fff; }
+.lobby-nickname-submit:active { transform: translateY(6px); box-shadow: 0 0 0 #894820; }
 
 /* ROOM LIST SCREEN */
 .room-list-container {
@@ -418,33 +473,33 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-list-panel {
   width: min(1000px, 94vw); height: min(700px, 85vh);
-  background: #fff3d6; border-radius: 32px;
-  border: 6px solid #8b6b4a;
-  box-shadow: 0 12px 0 #5d4e37, 0 25px 50px rgba(0,0,0,0.4);
+  background: #ffe8c4; border-radius: 32px;
+  border: 6px solid #b67b5a;
+  box-shadow: 0 12px 0 #894820, 0 25px 50px rgba(0,0,0,0.4);
   display: flex; overflow: hidden; position: relative;
   animation: lobby-appear-warm 500ms ease-out;
 }
 
 .room-list-sidebar {
-  width: 220px; background: #fae1b4; border-right: 4px solid #8b6b4a;
+  width: 220px; background: #fae1b4; border-right: 4px solid #b67b5a;
   padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; z-index: 2;
 }
 
-.sidebar-divider { height: 4px; background: #8b6b4a; border-radius: 2px; margin: 0.5rem 0; opacity: 0.3; }
+.sidebar-divider { height: 4px; background: #b67b5a; border-radius: 2px; margin: 0.5rem 0; opacity: 0.3; }
 
 .sidebar-join {
   margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem;
-  background: #fff; padding: 1rem; border-radius: 16px; border: 3px solid #8b6b4a;
+  background: #fff; padding: 1rem; border-radius: 16px; border: 3px solid #b67b5a;
 }
 
 .room-code-input {
   width: 100%; padding: 0.8rem; border-radius: 12px; font-size: 1.1rem;
-  font-family: 'Jua', sans-serif; text-align: center; letter-spacing: 0.2em;
-  background: #f1f2f6; border: 2px solid #d1ccc0; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; text-align: center; letter-spacing: 0.2em;
+  background: #f1f2f6; border: 2px solid #d1ccc0; color: #894820;
   outline: none; transition: border-color 200ms;
 }
 
-.room-code-input:focus { border-color: #8b6b4a; }
+.room-code-input:focus { border-color: #b67b5a; }
 
 .room-list-main {
   flex: 1; padding: 1.5rem; display: flex; flex-direction: column; z-index: 2;
@@ -456,12 +511,12 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 .room-list-header h2 {
-  font-family: 'Jua', sans-serif; font-size: 2.2rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 2.2rem; color: #894820;
   margin: 0; line-height: 1; -webkit-text-stroke: 1px #fff;
 }
 
 .room-list-count {
-  font-size: 1.1rem; color: #8b6b4a; font-family: 'Jua', sans-serif;
+  font-size: 1.1rem; color: #b67b5a; font-family: 'DNFBitBitv2', 'Jua', sans-serif;
 }
 
 .room-grid {
@@ -471,10 +526,10 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-grid::-webkit-scrollbar { width: 8px; }
 .room-grid::-webkit-scrollbar-track { background: #fae1b4; border-radius: 4px; }
-.room-grid::-webkit-scrollbar-thumb { background: #8b6b4a; border-radius: 4px; }
+.room-grid::-webkit-scrollbar-thumb { background: #b67b5a; border-radius: 4px; }
 
 .room-card {
-  background: #fff; border: 4px solid #8b6b4a; border-radius: 20px;
+  background: #fff; border: 4px solid #b67b5a; border-radius: 20px;
   padding: 0.8rem; display: flex; gap: 0.8rem; cursor: pointer;
   box-shadow: 0 4px 0 #d1ccc0; transition: transform 100ms, box-shadow 100ms;
 }
@@ -484,7 +539,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-card-thumb {
   width: 64px; height: 64px; background: #ffeaa7; border-radius: 12px;
-  border: 3px solid #8b6b4a; display: grid; place-items: center; flex-shrink: 0;
+  border: 3px solid #b67b5a; display: grid; place-items: center; flex-shrink: 0;
 }
 
 .thumb-icon {
@@ -503,7 +558,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
 
 .room-card-name {
-  font-family: 'Jua', sans-serif; font-size: 1.2rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.2rem; color: #894820;
   line-height: 1.2; word-break: break-all;
 }
 
@@ -512,7 +567,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-card-bottom { display: flex; justify-content: space-between; align-items: center; }
 
 .room-status {
-  padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.8rem; font-family: 'Jua', sans-serif;
+  padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.8rem; font-family: 'DNFBitBitv2', 'Jua', sans-serif;
   color: #fff; border: 2px solid rgba(0,0,0,0.1);
 }
 
@@ -520,7 +575,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-status.is-playing { background: #e63946; }
 
 .room-players-count {
-  font-family: 'Jua', sans-serif; font-size: 1.1rem; color: #8b6b4a;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.1rem; color: #b67b5a;
 }
 
 .panel-wood-floor {
@@ -532,34 +587,34 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
     #fbc531 40px,
     #fbc531 80px
   );
-  border-top: 4px solid #8b6b4a; opacity: 0.2; pointer-events: none;
+  border-top: 4px solid #b67b5a; opacity: 0.2; pointer-events: none;
 }
 
 /* BUTTONS */
 .lobby-btn-brown {
   width: 100%; padding: 0.8rem 1rem; border-radius: 12px; border: none;
-  font-family: 'Jua', sans-serif; font-size: 1.1rem; color: #fff;
-  background: #8b6b4a; cursor: pointer; box-shadow: 0 4px 0 #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.1rem; color: #fff;
+  background: #b67b5a; cursor: pointer; box-shadow: 0 4px 0 #894820;
   transition: transform 100ms, box-shadow 100ms;
 }
 
-.lobby-btn-brown:active { transform: translateY(4px); box-shadow: 0 0 0 #5d4e37; }
+.lobby-btn-brown:active { transform: translateY(4px); box-shadow: 0 0 0 #894820; }
 
 .lobby-btn-brown-outline {
-  width: 100%; padding: 0.8rem 1rem; border-radius: 12px; border: 3px solid #8b6b4a;
-  font-family: 'Jua', sans-serif; font-size: 1.1rem; color: #8b6b4a;
-  background: #fff; cursor: pointer; box-shadow: 0 4px 0 #8b6b4a;
+  width: 100%; padding: 0.8rem 1rem; border-radius: 12px; border: 3px solid #b67b5a;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.1rem; color: #b67b5a;
+  background: #fff; cursor: pointer; box-shadow: 0 4px 0 #b67b5a;
   transition: transform 100ms, box-shadow 100ms;
 }
 
-.lobby-btn-brown-outline:active { transform: translateY(4px); box-shadow: 0 0 0 #8b6b4a; }
+.lobby-btn-brown-outline:active { transform: translateY(4px); box-shadow: 0 0 0 #b67b5a; }
 
 /* ROOM DETAIL SCREEN */
 .room-detail-panel {
   width: min(1040px, 94vw); height: min(760px, 90vh);
-  background: #fff3d6; border-radius: 32px; padding: 1.5rem;
-  border: 6px solid #8b6b4a;
-  box-shadow: 0 12px 0 #5d4e37, 0 25px 50px rgba(0,0,0,0.4);
+  background: #ffe8c4; border-radius: 32px; padding: 1.5rem;
+  border: 6px solid #b67b5a;
+  box-shadow: 0 12px 0 #894820, 0 25px 50px rgba(0,0,0,0.4);
   display: flex; flex-direction: column; position: relative;
   animation: lobby-appear-warm 500ms ease-out; z-index: 2;
   overflow: hidden;
@@ -572,21 +627,21 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 .room-detail-title {
-  font-family: 'Jua', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem);
-  color: #5d4e37; margin: 0; line-height: 1; -webkit-text-stroke: 1px #fff;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem);
+  color: #894820; margin: 0; line-height: 1; -webkit-text-stroke: 1px #fff;
 }
 
 .room-code-badge-warm {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.5rem 0.8rem; border-radius: 16px;
-  background: #fff; border: 3px solid #8b6b4a;
+  background: #fff; border: 3px solid #b67b5a;
   box-shadow: 0 4px 0 #d1ccc0;
 }
 
-.room-code-label-warm { font-size: 0.8rem; color: #8b6b4a; font-weight: 700; font-family: 'Noto Sans KR', sans-serif; }
+.room-code-label-warm { font-size: 0.8rem; color: #b67b5a; font-weight: 700; font-family: 'Noto Sans KR', sans-serif; }
 
 .room-code-value-warm {
-  font-family: 'Jua', sans-serif; color: #d63031;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; color: #d63031;
   font-size: 1.4rem; letter-spacing: 0.1em;
 }
 
@@ -596,18 +651,18 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 .room-detail-players, .room-detail-selection, .room-detail-chat {
-  background: #fff; border-radius: 20px; border: 4px solid #8b6b4a;
+  background: #fff; border-radius: 20px; border: 4px solid #b67b5a;
   padding: 1rem; display: flex; flex-direction: column;
   box-shadow: 0 4px 0 #d1ccc0;
 }
 
 .room-detail-players h2, .room-detail-selection h2, .room-detail-chat h2 {
-  font-family: 'Jua', sans-serif; font-size: 1.3rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.3rem; color: #894820;
   margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: space-between;
 }
 
 .room-player-count-warm {
-  font-size: 0.9rem; color: #fff; background: #8b6b4a;
+  font-size: 0.9rem; color: #fff; background: #b67b5a;
   padding: 0.2rem 0.6rem; border-radius: 12px;
 }
 
@@ -634,12 +689,12 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .player-avatar-warm {
   width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
-  background: #8b6b4a; color: #fff; font-family: 'Jua', sans-serif; font-size: 1.2rem;
+  background: #b67b5a; color: #fff; font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.2rem;
 }
 
-.player-row-warm.is-me .player-avatar-warm { background: #fbc531; color: #5d4e37; }
+.player-row-warm.is-me .player-avatar-warm { background: #fbc531; color: #894820; }
 
-.player-name-warm { font-size: 0.95rem; font-weight: 700; color: #5d4e37; font-family: 'Noto Sans KR', sans-serif; }
+.player-name-warm { font-size: 0.95rem; font-weight: 700; color: #894820; font-family: 'Noto Sans KR', sans-serif; }
 
 .player-row-tags-warm { display: flex; gap: 0.3rem; align-items: center; }
 
@@ -657,27 +712,27 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .lobby-btn-ready-warm {
   width: 100%; padding: 1rem; border-radius: 16px; border: none;
-  font-family: 'Jua', sans-serif; font-size: 1.3rem; color: #fff;
-  background: #8b6b4a; cursor: pointer; box-shadow: 0 6px 0 #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.3rem; color: #fff;
+  background: #b67b5a; cursor: pointer; box-shadow: 0 6px 0 #894820;
   transition: transform 100ms, box-shadow 100ms, background 200ms;
 }
 
-.lobby-btn-ready-warm:active { transform: translateY(6px); box-shadow: 0 0 0 #5d4e37; }
+.lobby-btn-ready-warm:active { transform: translateY(6px); box-shadow: 0 0 0 #894820; }
 .lobby-btn-ready-warm.is-ready { background: #4ecdc4; box-shadow: 0 6px 0 #1abc9c; }
 .lobby-btn-ready-warm.is-ready:active { transform: translateY(6px); box-shadow: 0 0 0 #1abc9c; }
 
 .lobby-btn-start-warm {
   width: 100%; padding: 0.8rem; border-radius: 12px; border: none;
-  font-family: 'Jua', sans-serif; font-size: 1.1rem; color: #fff;
-  background: #fab1a0; cursor: pointer; box-shadow: 0 4px 0 #e17055;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.1rem; color: #fff;
+  background: #b67b5a; cursor: pointer; box-shadow: 0 4px 0 #894820;
   transition: transform 100ms, box-shadow 100ms;
 }
 
-.lobby-btn-start-warm:active { transform: translateY(4px); box-shadow: 0 0 0 #e17055; }
+.lobby-btn-start-warm:active { transform: translateY(4px); box-shadow: 0 0 0 #894820; }
 
 .lobby-btn-ghost-warm {
   width: 100%; padding: 0.8rem; border-radius: 12px; border: 3px solid #d1ccc0;
-  font-family: 'Jua', sans-serif; font-size: 1rem; color: #a4b0be;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1rem; color: #a4b0be;
   background: transparent; cursor: pointer; transition: all 100ms;
 }
 
@@ -685,7 +740,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .trainer-status-warm {
   background: #fff9e6; border: 3px dashed #fbc531; border-radius: 20px;
-  padding: 1.5rem; text-align: center; color: #5d4e37; font-family: 'Noto Sans KR', sans-serif;
+  padding: 1.5rem; text-align: center; color: #894820; font-family: 'Noto Sans KR', sans-serif;
   display: flex; flex-direction: column; align-items: center; gap: 1rem;
   font-size: 1.1rem; line-height: 1.6;
 }
@@ -709,7 +764,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   font-family: 'Noto Sans KR', sans-serif; align-self: flex-start; max-width: 90%; word-break: break-word;
 }
 
-.chat-message-warm strong { color: #8b6b4a; font-weight: 700; margin-right: 0.3rem; }
+.chat-message-warm strong { color: #b67b5a; font-weight: 700; margin-right: 0.3rem; }
 
 .chat-input-row-warm { display: flex; gap: 0.5rem; }
 
@@ -720,7 +775,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   outline: none; transition: border-color 200ms;
 }
 
-.chat-input-row-warm input:focus { border-color: #8b6b4a; }
+.chat-input-row-warm input:focus { border-color: #b67b5a; }
 
 /* RE-STYLE POKEMON SELECT FOR WARM THEME */
 .room-detail-selection .pokemon-select-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; overflow-y: auto; padding-right: 0.5rem; flex: 1; }
@@ -730,12 +785,12 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-detail-selection .pokemon-card {
   background: #fff; border: 3px solid #d1ccc0; border-radius: 16px; padding: 0.8rem;
-  color: #5d4e37; box-shadow: 0 4px 0 #f1f2f6; transition: all 100ms;
+  color: #894820; box-shadow: 0 4px 0 #f1f2f6; transition: all 100ms;
 }
 
-.room-detail-selection .pokemon-card:hover { transform: translateY(-2px); border-color: #8b6b4a; box-shadow: 0 6px 0 #f1f2f6; }
+.room-detail-selection .pokemon-card:hover { transform: translateY(-2px); border-color: #b67b5a; box-shadow: 0 6px 0 #f1f2f6; }
 .room-detail-selection .pokemon-card.selected {
-  border-color: #e17055; background: #fff4f2; box-shadow: 0 4px 0 #e17055; transform: translateY(-2px) scale(1.02);
+  border-color: #b67b5a; background: #fff4f2; box-shadow: 0 4px 0 #b67b5a; transform: translateY(-2px) scale(1.02);
 }
 .room-detail-selection .pokemon-card-top { display: flex; align-items: center; gap: 0.5rem; }
 .room-detail-selection .pokemon-card-avatar {
@@ -744,23 +799,23 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   box-shadow: inset 0 -2px 4px rgba(0,0,0,0.15);
 }
 .room-detail-selection .pokemon-card-info { display: flex; flex-direction: column; gap: 0; min-width: 0; }
-.room-detail-selection .pokemon-card-name { color: #5d4e37; font-family: 'Jua', sans-serif; font-size: 1rem; line-height: 1.2; }
+.room-detail-selection .pokemon-card-name { color: #894820; font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1rem; line-height: 1.2; }
 .room-detail-selection .pokemon-card-name-en { color: #a4b0be; font-size: 0.62rem; font-weight: 500; }
 .room-detail-selection .pokemon-card-stats { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.4rem; }
 .room-detail-selection .poke-stat-row { display: flex; align-items: center; gap: 0.3rem; }
-.room-detail-selection .poke-stat-label { color: #8b6b4a; font-size: 0.65rem; font-weight: 600; min-width: 48px; white-space: nowrap; }
+.room-detail-selection .poke-stat-label { color: #b67b5a; font-size: 0.65rem; font-weight: 600; min-width: 48px; white-space: nowrap; }
 .room-detail-selection .poke-stat-track { background: #f1f2f6; flex: 1; height: 4px; border-radius: 999px; overflow: hidden; }
-.room-detail-selection .poke-stat-fill { background: #8b6b4a; height: 100%; border-radius: 999px; transition: width 300ms ease; }
-.room-detail-selection .poke-stat-num { color: #5d4e37; font-size: 0.65rem; font-weight: 700; min-width: 20px; text-align: right; }
+.room-detail-selection .poke-stat-fill { background: #b67b5a; height: 100%; border-radius: 999px; transition: width 300ms ease; }
+.room-detail-selection .poke-stat-num { color: #894820; font-size: 0.65rem; font-weight: 700; min-width: 20px; text-align: right; }
 .room-detail-selection .pokemon-card-check { 
-  background: #e17055; color: #fff; position: absolute; top: 0.35rem; right: 0.45rem;
+  background: #b67b5a; color: #fff; position: absolute; top: 0.35rem; right: 0.45rem;
   width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 0.65rem; font-weight: 900;
 }
 @media (max-width: 960px) {
   .room-detail-layout { grid-template-columns: 1fr; }
   .room-detail-panel { overflow-y: auto; }
   .room-list-panel { flex-direction: column; overflow-y: auto; }
-  .room-list-sidebar { width: 100%; border-right: none; border-bottom: 4px solid #8b6b4a; }
+  .room-list-sidebar { width: 100%; border-right: none; border-bottom: 4px solid #b67b5a; }
 }
 
 /* ===== CHANNEL SELECT SCREEN ===== */
@@ -771,9 +826,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .channel-panel {
   width: min(640px, 92vw);
-  background: #fff3d6; border-radius: 32px;
-  border: 6px solid #8b6b4a;
-  box-shadow: 0 12px 0 #5d4e37, 0 25px 50px rgba(0,0,0,0.4);
+  background: #ffe8c4; border-radius: 32px;
+  border: 6px solid #b67b5a;
+  box-shadow: 0 12px 0 #894820, 0 25px 50px rgba(0,0,0,0.4);
   padding: 2rem;
   animation: lobby-appear-warm 500ms ease-out;
 }
@@ -786,7 +841,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .channel-back-btn { width: auto; padding: 0.6rem 1rem; font-size: 0.95rem; }
 
 .channel-title {
-  font-family: 'Jua', sans-serif; font-size: 2rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 2rem; color: #894820;
   margin: 0; flex: 1; text-align: center;
 }
 
@@ -795,7 +850,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 .channel-card {
-  background: #fff; border: 4px solid #8b6b4a; border-radius: 20px;
+  background: #fff; border: 4px solid #b67b5a; border-radius: 20px;
   padding: 1.5rem; text-align: center; cursor: pointer;
   box-shadow: 0 4px 0 #d1ccc0; transition: transform 100ms, box-shadow 100ms;
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
@@ -807,18 +862,18 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .channel-card-icon { font-size: 2.5rem; }
 
 .channel-card-name {
-  font-family: 'Jua', sans-serif; font-size: 1.4rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.4rem; color: #894820;
 }
 
 .channel-card-desc {
-  font-size: 0.9rem; color: #8b6b4a; font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem; color: #b67b5a; font-family: 'Noto Sans KR', sans-serif;
 }
 
 /* ===== ROOM EMPTY STATE ===== */
 .room-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   flex: 1; gap: 1rem; padding: 3rem; text-align: center;
-  color: #8b6b4a; font-family: 'Noto Sans KR', sans-serif; font-size: 1.1rem;
+  color: #b67b5a; font-family: 'Noto Sans KR', sans-serif; font-size: 1.1rem;
   line-height: 1.6;
 }
 
@@ -834,9 +889,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .modal-panel {
   width: min(480px, 92vw);
-  background: #fff3d6; border-radius: 24px;
-  border: 6px solid #8b6b4a;
-  box-shadow: 0 12px 0 #5d4e37, 0 25px 50px rgba(0,0,0,0.5);
+  background: #ffe8c4; border-radius: 24px;
+  border: 6px solid #b67b5a;
+  box-shadow: 0 12px 0 #894820, 0 25px 50px rgba(0,0,0,0.5);
   padding: 1.5rem;
   animation: lobby-appear-warm 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -844,14 +899,14 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .modal-panel.modal-small { width: min(360px, 90vw); }
 
 .modal-title {
-  font-family: 'Jua', sans-serif; font-size: 1.8rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1.8rem; color: #894820;
   margin: 0 0 1.2rem; text-align: center;
 }
 
 .modal-field { margin-bottom: 1rem; }
 
 .modal-label {
-  display: block; font-family: 'Jua', sans-serif; font-size: 1rem; color: #8b6b4a;
+  display: block; font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1rem; color: #b67b5a;
   margin-bottom: 0.4rem;
 }
 
@@ -859,16 +914,16 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .modal-opt-btn {
   padding: 0.6rem 1rem; border-radius: 12px; border: 3px solid #d1ccc0;
-  font-family: 'Jua', sans-serif; font-size: 1rem; color: #5d4e37;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 1rem; color: #894820;
   background: #fff; cursor: pointer; transition: all 100ms;
 }
 
 .modal-opt-btn.active {
-  border-color: #e17055; background: #fff4f2; color: #e17055;
-  box-shadow: 0 4px 0 #e17055;
+  border-color: #b67b5a; background: #fff4f2; color: #b67b5a;
+  box-shadow: 0 4px 0 #b67b5a;
 }
 
-.modal-opt-btn:hover:not(.active) { border-color: #8b6b4a; }
+.modal-opt-btn:hover:not(.active) { border-color: #b67b5a; }
 
 .modal-map-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
 
@@ -878,10 +933,10 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 
 .modal-map-card.active {
-  border-color: #e17055; box-shadow: 0 4px 0 #e17055; transform: translateY(-2px);
+  border-color: #b67b5a; box-shadow: 0 4px 0 #b67b5a; transform: translateY(-2px);
 }
 
-.modal-map-card:hover:not(.active) { border-color: #8b6b4a; }
+.modal-map-card:hover:not(.active) { border-color: #b67b5a; }
 
 .modal-map-card.coming-soon {
   opacity: 0.5; cursor: not-allowed; position: relative;
@@ -890,15 +945,15 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .modal-map-card.coming-soon:hover { border-color: #d1ccc0; }
 
 .coming-soon-badge {
-  font-family: 'Jua', sans-serif; font-size: 0.75rem; color: #fff;
+  font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 0.75rem; color: #fff;
   background: rgba(0,0,0,0.55); padding: 0.2rem 0.6rem; border-radius: 8px;
 }
 
 .modal-map-preview { height: 60px; display: grid; place-items: center; }
 
 .modal-map-name {
-  display: block; padding: 0.4rem; font-family: 'Jua', sans-serif; font-size: 0.9rem;
-  color: #5d4e37; background: #fff;
+  display: block; padding: 0.4rem; font-family: 'DNFBitBitv2', 'Jua', sans-serif; font-size: 0.9rem;
+  color: #894820; background: #fff;
 }
 
 .modal-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }

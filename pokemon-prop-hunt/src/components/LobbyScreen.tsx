@@ -55,7 +55,7 @@ export default function LobbyScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [ready, setReady] = useState(false);
-  const [view, setView] = useState<'main' | 'channels' | 'rooms'>('main');
+  const [view, setView] = useState<'main' | 'nickname' | 'channels' | 'rooms'>('main');
 
   // Create room modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -81,10 +81,6 @@ export default function LobbyScreen() {
   const handleSelectSpecies = (species: PokemonSpecies) => {
     selectSpecies(species);
     sendSpeciesSelect(species.name);
-  };
-
-  const handleStartClicked = () => {
-    setView('channels');
   };
 
   const handleSelectChannel = (ch: number) => {
@@ -135,18 +131,40 @@ export default function LobbyScreen() {
         <div className="lobby-bg-warm-gradient" />
         <div className="lobby-bg-pattern" />
         <div className="lobby-center">
-          <p className="lobby-subtitle">몬스터볼을 던져 포켓몬을 잡아라!</p>
-          <h1 className="lobby-title">포켓몬<br />숨바꼭질</h1>
-          <div className="lobby-main-panel">
-            <input
-              className="lobby-name-input"
-              value={name}
-              maxLength={20}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="트레이너 이름"
-            />
-            <button type="button" className="lobby-btn-start" onClick={handleStartClicked}>
-              시작하기
+          <p className="lobby-subtitle">숨어있는 물체를 찾아라</p>
+          <h1 className="lobby-title">숨구멍</h1>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button type="button" className="lobby-btn-start" onClick={() => setView('nickname')} style={{ width: 'auto', padding: '0.8rem 3rem' }}>
+              Guest
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── NICKNAME SCREEN ─────────────────────────────────────────
+  if (!isConnected && view === 'nickname') {
+    return (
+      <div className="lobby-screen">
+        <div className="lobby-bg-warm-gradient" />
+        <div className="lobby-bg-pattern" />
+        <div className="lobby-center">
+          <div className="lobby-nickname-panel">
+            <p className="lobby-nickname-title">Guest Login</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', width: '100%', justifyContent: 'center' }}>
+              <span className="lobby-nickname-label">닉네임</span>
+              <input
+                className="lobby-nickname-input"
+                value={name}
+                maxLength={20}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="닉네임을 입력하세요"
+                onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) setView('channels'); }}
+              />
+            </div>
+            <button type="button" className="lobby-nickname-submit" onClick={() => { if (name.trim()) setView('channels'); }}>
+              Guest
             </button>
           </div>
         </div>
@@ -163,7 +181,7 @@ export default function LobbyScreen() {
         <div className="channel-container">
           <div className="channel-panel">
             <div className="channel-header">
-              <button type="button" className="lobby-btn-brown channel-back-btn" onClick={() => setView('main')}>
+              <button type="button" className="lobby-btn-brown channel-back-btn" onClick={() => setView('nickname')}>
                 ← 뒤로
               </button>
               <h2 className="channel-title">채널 선택</h2>
