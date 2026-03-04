@@ -1,6 +1,6 @@
 import { Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useAnimations, useGLTF } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -30,7 +30,22 @@ const TARGET_HEIGHTS: Record<string, number> = {
   Blastoise: 1.8,
 };
 
-// Verified against actual GLB animation clip names
+// Hardcoded fallback scales computed from known model dimensions:
+// scale = targetHeight / (rootArmatureScale × vertexHeight)
+// Most models have Armature root scale 10; Ivysaur has scale 1
+const FALLBACK_SCALES: Record<string, number> = {
+  Bulbasaur: 0.00806,
+  Ivysaur: 0.945,
+  Venusaur: 0.0094,
+  Charmander: 0.01672,
+  Charmeleon: 0.01057,
+  Charizard: 0.01036,
+  Squirtle: 0.02276,
+  Wartortle: 0.00897,
+  Blastoise: 0.01306,
+};
+
+// Verified against actual GLB animation clip names (parsed from binary GLTF data)
 const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
   Bulbasaur: { idle: 'waitA01', walk: 'walk01' },
   Ivysaur: { idle: 'defaultwait01_loop', walk: 'walk01_loop', run: 'run01_loop' },
@@ -52,15 +67,13 @@ function PokemonModelGLTF({
   modelPath: string;
   isMoving: boolean;
 }) {
-  const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(modelPath);
 
-  // Clone scene using SkeletonUtils from three-stdlib (same as drei uses)
-  // This properly handles SkinnedMesh bone references
+  // Clone scene using SkeletonUtils from three-stdlib
   const { clonedScene, normalizedScale, minY, center } = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
 
-    // Use .isMesh instead of instanceof (avoids issues with multiple three.js copies in bundle)
+    // Set up materials for shadows + fix SkinnedMesh frustum culling
     cloned.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
@@ -72,18 +85,27 @@ function PokemonModelGLTF({
           mesh.material = mesh.material.clone();
         }
       }
+      // Prevent animated SkinnedMesh from disappearing due to stale bind-pose bounds
+      if ((child as any).isSkinnedMesh) {
+        (child as THREE.SkinnedMesh).frustumCulled = false;
+      }
     });
 
-    // Compute bounds safely — SkinnedMesh bounds can be empty/incorrect
+    // CRITICAL: Force world matrix computation on the freshly cloned scene.
+    // Without this, Box3.setFromObject uses stale/identity matrices,
+    // giving wrong bounds for models with non-identity root transforms (Armature scale 10).
+    cloned.updateMatrixWorld(true);
+
     const bounds = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     const ctr = new THREE.Vector3();
 
-    // Safety: if bounds are empty or degenerate, use defaults
     if (bounds.isEmpty() || !isFinite(bounds.min.x)) {
+      const fallback = FALLBACK_SCALES[species.name] ?? species.modelScale;
+      console.warn(`[Pokemon] ${species.name}: bounds empty, using fallback scale ${fallback}`);
       return {
         clonedScene: cloned,
-        normalizedScale: species.modelScale,
+        normalizedScale: fallback,
         minY: 0,
         center: new THREE.Vector3(0, 0, 0),
       };
@@ -94,43 +116,96 @@ function PokemonModelGLTF({
 
     const actualHeight = size.y;
     const targetHeight = TARGET_HEIGHTS[species.name] ?? 1.0;
-    const scale =
+    let scale =
       actualHeight > 0.001 ? (targetHeight * species.modelScale) / actualHeight : species.modelScale;
+
+    // Sanity check: if computed scale differs >5x from known fallback, prefer fallback
+    const fallback = FALLBACK_SCALES[species.name];
+    if (fallback && isFinite(scale)) {
+      const ratio = scale / fallback;
+      if (ratio > 5 || ratio < 0.2) {
+        console.warn(
+          `[Pokemon] ${species.name}: computed scale ${scale.toFixed(6)} differs >5x from expected ${fallback.toFixed(6)} (actualH=${actualHeight.toFixed(2)}). Using fallback.`,
+        );
+        scale = fallback;
+      }
+    }
+
+    if (!isFinite(scale)) {
+      scale = fallback ?? species.modelScale;
+    }
+
+    console.log(
+      `[Pokemon] ${species.name}: actualH=${actualHeight.toFixed(2)}, targetH=${targetHeight}, scale=${scale.toFixed(6)}, minY=${bounds.min.y.toFixed(2)}`,
+    );
 
     return {
       clonedScene: cloned,
-      normalizedScale: isFinite(scale) ? scale : species.modelScale,
+      normalizedScale: scale,
       minY: isFinite(bounds.min.y) ? bounds.min.y : 0,
       center: ctr,
     };
   }, [scene, species.modelScale, species.name]);
 
-  // Don't clone animation clips — share originals, only mixer/actions are per-instance
-  const { actions } = useAnimations(animations, group);
-  const animMap = ANIMATION_MAP[species.name];
+  // --- Animation: manual mixer bound to clonedScene (Oracle-recommended pattern) ---
+  // Binding to clonedScene (not a group wrapper) ensures bones are found directly.
+  const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
 
+  const clipsByName = useMemo(() => {
+    const m: Record<string, THREE.AnimationClip> = {};
+    for (const c of animations) m[c.name] = c;
+    return m;
+  }, [animations]);
+
+  const currentAction = useRef<THREE.AnimationAction | null>(null);
+
+  // Update mixer every frame
+  useFrame((_, delta) => mixer.update(delta));
+
+  // Switch animation on isMoving change (also starts idle on mount)
   useEffect(() => {
-    if (!actions || !animMap) {
+    const animMap = ANIMATION_MAP[species.name];
+    if (!animMap) return;
+
+    const idleClip = clipsByName[animMap.idle];
+    const walkClip = clipsByName[animMap.walk] ?? (animMap.run ? clipsByName[animMap.run] : undefined);
+    const nextClip = isMoving && walkClip ? walkClip : idleClip;
+
+    if (!nextClip) {
+      console.warn(`[Pokemon] ${species.name}: clip not found! idle="${animMap.idle}" walk="${animMap.walk}"`);
       return;
     }
 
-    const idleAction = actions[animMap.idle];
-    const walkAction = actions[animMap.walk] ?? (animMap.run ? actions[animMap.run] : undefined);
+    const next = mixer.clipAction(nextClip);
+    next.reset().fadeIn(0.3).play();
 
-    Object.values(actions).forEach((action) => action?.stop());
-
-    const activeAction = isMoving && walkAction ? walkAction : idleAction;
-    if (activeAction) {
-      activeAction.reset().fadeIn(0.3).play();
+    if (currentAction.current && currentAction.current !== next) {
+      currentAction.current.fadeOut(0.3);
     }
+    currentAction.current = next;
 
     return () => {
-      activeAction?.fadeOut(0.3);
+      next.fadeOut(0.3);
     };
-  }, [isMoving, actions, animMap]);
+  }, [isMoving, mixer, clipsByName, species.name]);
+
+  // Cleanup mixer on unmount or model swap
+  useEffect(() => {
+    // Log clip names for debugging
+    const animMap = ANIMATION_MAP[species.name];
+    const clipNames = animations.map((c) => c.name);
+    console.log(
+      `[Pokemon] ${species.name}: ${animations.length} clips [${clipNames.slice(0, 5).join(', ')}${clipNames.length > 5 ? '...' : ''}]`,
+      `idle="${animMap?.idle}" walk="${animMap?.walk}"`,
+    );
+    return () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(clonedScene);
+    };
+  }, [mixer, clonedScene, animations, species.name]);
 
   return (
-    <group ref={group} scale={normalizedScale} rotation={[0, Math.PI, 0]}>
+    <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
       <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
     </group>
   );
