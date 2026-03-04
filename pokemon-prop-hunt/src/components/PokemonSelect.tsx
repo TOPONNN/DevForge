@@ -1,19 +1,15 @@
 import { POKEMON_SPECIES, type PokemonSpecies } from '../types/game';
 
 const KOREAN_NAMES: Record<string, string> = {
-  Pikachu: '피카츄',
-  Charmander: '파이리',
   Bulbasaur: '이상해씨',
+  Ivysaur: '이상해풀',
+  Venusaur: '이상해꽃',
+  Charmander: '파이리',
+  Charmeleon: '리자드',
+  Charizard: '리자몽',
   Squirtle: '꼬부기',
-  Eevee: '이브이',
-  Snorlax: '잠만보',
-  Jigglypuff: '푸린',
-  Mew: '뮤',
-  Magikarp: '잉어킹',
-  Marill: '마릴',
-  Porygon: '폴리곤',
-  Magnemite: '코일',
-  Bellsprout: '모다피',
+  Wartortle: '어니부기',
+  Blastoise: '거북왕',
 };
 
 interface PokemonSelectProps {
@@ -48,8 +44,8 @@ export default function PokemonSelect({ selectedSpecies, onSelect }: PokemonSele
             onClick={() => onSelect(species)}
           >
             <div className="pokemon-card-top">
-              <span className="pokemon-card-avatar">
-                <img src={`/icons/${species.name.toLowerCase()}.svg`} alt={species.name} />
+              <span className="pokemon-card-avatar" style={{ background: species.color }}>
+                {krName.charAt(0)}
               </span>
               <div className="pokemon-card-info">
                 <span className="pokemon-card-name">{krName}</span>

@@ -3,13 +3,15 @@ import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 
 const KOREAN_NAMES: Record<string, string> = {
-  Pikachu: '피카츄', Charmander: '파이리', Bulbasaur: '이상해씨', Squirtle: '꼬부기',
-  Eevee: '이브이', Snorlax: '잠만보', Gengar: '팬텀', Jigglypuff: '푸린',
+  Bulbasaur: '이상해씨', Ivysaur: '이상해풀', Venusaur: '이상해꽃',
+  Charmander: '파이리', Charmeleon: '리자드', Charizard: '리자몽',
+  Squirtle: '꼬부기', Wartortle: '어니부기', Blastoise: '거북왕',
 };
 
 const SPECIES_COLORS: Record<string, string> = {
-  Pikachu: '#FFD60A', Charmander: '#F77F00', Bulbasaur: '#2A9D8F', Squirtle: '#5FA8D3',
-  Eevee: '#B08968', Snorlax: '#4D908E', Gengar: '#4361EE', Jigglypuff: '#F6BDC0',
+  Bulbasaur: '#2A9D8F', Ivysaur: '#1E8449', Venusaur: '#196F3D',
+  Charmander: '#F77F00', Charmeleon: '#E74C3C', Charizard: '#D35400',
+  Squirtle: '#5FA8D3', Wartortle: '#2E86C1', Blastoise: '#1A5276',
 };
 
 interface ResultScreenProps {

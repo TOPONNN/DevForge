@@ -1,46 +1,49 @@
 import { Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useAnimations, useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
-  Pikachu: '/models/pikachu.glb',
-  Charmander: '/models/charmander.glb',
   Bulbasaur: '/models/bulbasaur.glb',
+  Ivysaur: '/models/ivysaur.glb',
+  Venusaur: '/models/venusaur.glb',
+  Charmander: '/models/charmander.glb',
+  Charmeleon: '/models/charmeleon.glb',
+  Charizard: '/models/charizard.glb',
   Squirtle: '/models/squirtle.glb',
-  Eevee: '/models/eevee.glb',
-  Snorlax: '/models/snorlax.glb',
-  Jigglypuff: '/models/jigglypuff.glb',
-  Mew: '/models/mew.glb',
-  Magikarp: '/models/magikarp.glb',
-  Marill: '/models/marill.glb',
-  Porygon: '/models/porygon.glb',
-  Magnemite: '/models/magnemite.glb',
-  Bellsprout: '/models/bellsprout.glb',
+  Wartortle: '/models/wartortle.glb',
+  Blastoise: '/models/blastoise.glb',
 };
 
 const TARGET_HEIGHTS: Record<string, number> = {
-  Pikachu: 1.0,
-  Charmander: 1.1,
-  Bulbasaur: 0.9,
+  Bulbasaur: 1.2,
+  Ivysaur: 1.2,
+  Venusaur: 1.8,
+  Charmander: 1.0,
+  Charmeleon: 1.2,
+  Charizard: 1.8,
   Squirtle: 1.0,
-  Eevee: 0.9,
-  Snorlax: 1.8,
-  Jigglypuff: 0.8,
-  Mew: 0.9,
-  Magikarp: 0.8,
-  Marill: 0.7,
-  Porygon: 0.9,
-  Magnemite: 0.7,
-  Bellsprout: 1.0,
+  Wartortle: 1.2,
+  Blastoise: 1.8,
+};
+
+const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
+  Bulbasaur: { idle: 'waitA01', walk: 'walk01' },
+  Ivysaur: { idle: 'defaultwait01_loop', walk: 'walk01_loop', run: 'run01_loop' },
+  Venusaur: { idle: 'waitA01', walk: 'walk01' },
+  Charmander: { idle: 'loop01', walk: 'walk01' },
+  Charmeleon: { idle: 'loop01', walk: 'walk01' },
+  Charizard: { idle: 'loop01', walk: 'walk01' },
+  Squirtle: { idle: 'defaultwait01_loop.tranm', walk: 'walk01_loop.tranm' },
+  Wartortle: { idle: 'waitA01', walk: 'walk01' },
+  Blastoise: { idle: 'waitA01', walk: 'walk01' },
 };
 
 type GLTFAsset = {
   scene: THREE.Group;
-  nodes: Record<string, THREE.Object3D>;
-  materials: Record<string, THREE.Material | THREE.Material[]>;
+  animations: THREE.AnimationClip[];
 };
 
 type ModelAsset = {
@@ -50,8 +53,17 @@ type ModelAsset = {
   minY: number;
 };
 
-function PokemonModelGLTF({ species, modelPath }: { species: PokemonSpecies; modelPath: string }) {
-  const { scene } = useGLTF(modelPath) as GLTFAsset;
+function PokemonModelGLTF({
+  species,
+  modelPath,
+  isMoving,
+}: {
+  species: PokemonSpecies;
+  modelPath: string;
+  isMoving: boolean;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF(modelPath) as GLTFAsset;
 
   const asset = useMemo<ModelAsset>(() => {
     const clone = scene.clone(true);
@@ -87,8 +99,31 @@ function PokemonModelGLTF({ species, modelPath }: { species: PokemonSpecies; mod
     };
   }, [scene, species.modelScale, species.name]);
 
+  const { actions } = useAnimations(animations, group);
+  const animMap = ANIMATION_MAP[species.name];
+
+  useEffect(() => {
+    if (!actions || !animMap) {
+      return;
+    }
+
+    const idleAction = actions[animMap.idle];
+    const walkAction = actions[animMap.walk] ?? (animMap.run ? actions[animMap.run] : undefined);
+
+    Object.values(actions).forEach((action) => action?.stop());
+
+    const activeAction = isMoving && walkAction ? walkAction : idleAction;
+    if (activeAction) {
+      activeAction.reset().fadeIn(0.3).play();
+    }
+
+    return () => {
+      activeAction?.fadeOut(0.3);
+    };
+  }, [isMoving, actions, animMap]);
+
   return (
-    <group scale={asset.normalizedScale} rotation={[0, Math.PI, 0]}>
+    <group ref={group} scale={asset.normalizedScale} rotation={[0, Math.PI, 0]}>
       <primitive object={asset.clone} position={[-asset.center.x, -asset.minY, -asset.center.z]} />
     </group>
   );
@@ -107,16 +142,16 @@ interface PokemonCharacterProps {
 }
 
 function PokemonBody({ species }: { species: PokemonSpecies }) {
-  if (species.name === 'Snorlax') {
+  if (species.name === 'Venusaur' || species.name === 'Charizard' || species.name === 'Blastoise') {
     return <capsuleGeometry args={[0.7 * species.modelScale, 1 * species.modelScale, 12, 18]} />;
   }
-  if (species.name === 'Charmander' || species.name === 'Bellsprout') {
+  if (species.name === 'Charmander' || species.name === 'Squirtle') {
     return <capsuleGeometry args={[0.45 * species.modelScale, 0.85 * species.modelScale, 10, 16]} />;
   }
-  if (species.name === 'Bulbasaur' || species.name === 'Squirtle' || species.name === 'Marill') {
+  if (species.name === 'Bulbasaur' || species.name === 'Ivysaur' || species.name === 'Wartortle') {
     return <dodecahedronGeometry args={[0.62 * species.modelScale, 0]} />;
   }
-  if (species.name === 'Porygon' || species.name === 'Magnemite') {
+  if (species.name === 'Charmeleon') {
     return <dodecahedronGeometry args={[0.5 * species.modelScale, 1]} />;
   }
   return <sphereGeometry args={[0.56 * species.modelScale, 24, 24]} />;
@@ -217,7 +252,7 @@ export default function PokemonCharacter({
               </mesh>
             }
           >
-            <PokemonModelGLTF species={species} modelPath={MODEL_MAP[species.name]} />
+            <PokemonModelGLTF species={species} modelPath={MODEL_MAP[species.name]} isMoving={isMoving} />
           </Suspense>
         ) : (
           <mesh castShadow>
@@ -243,16 +278,12 @@ export default function PokemonCharacter({
   );
 }
 
-useGLTF.preload('/models/pikachu.glb');
-useGLTF.preload('/models/charmander.glb');
 useGLTF.preload('/models/bulbasaur.glb');
+useGLTF.preload('/models/ivysaur.glb');
+useGLTF.preload('/models/venusaur.glb');
+useGLTF.preload('/models/charmander.glb');
+useGLTF.preload('/models/charmeleon.glb');
+useGLTF.preload('/models/charizard.glb');
 useGLTF.preload('/models/squirtle.glb');
-useGLTF.preload('/models/eevee.glb');
-useGLTF.preload('/models/snorlax.glb');
-useGLTF.preload('/models/jigglypuff.glb');
-useGLTF.preload('/models/mew.glb');
-useGLTF.preload('/models/magikarp.glb');
-useGLTF.preload('/models/marill.glb');
-useGLTF.preload('/models/porygon.glb');
-useGLTF.preload('/models/magnemite.glb');
-useGLTF.preload('/models/bellsprout.glb');
+useGLTF.preload('/models/wartortle.glb');
+useGLTF.preload('/models/blastoise.glb');

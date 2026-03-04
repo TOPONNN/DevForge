@@ -17,19 +17,15 @@ export interface PokemonSpecies {
 }
 
 export const POKEMON_SPECIES: PokemonSpecies[] = [
-  { name: 'Pikachu', speed: 6, catchDifficulty: 0.4, size: 'small', color: '#FFD60A', modelScale: 0.9 },
+  { name: 'Bulbasaur', speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#2A9D8F', modelScale: 1.0 },
+  { name: 'Ivysaur', speed: 4, catchDifficulty: 0.55, size: 'medium', color: '#1E8449', modelScale: 0.9 },
+  { name: 'Venusaur', speed: 3, catchDifficulty: 0.7, size: 'large', color: '#196F3D', modelScale: 1.3 },
   { name: 'Charmander', speed: 5, catchDifficulty: 0.5, size: 'small', color: '#F77F00', modelScale: 0.95 },
-  { name: 'Bulbasaur', speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#2A9D8F', modelScale: 1 },
-  { name: 'Squirtle', speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#5FA8D3', modelScale: 0.95 },
-  { name: 'Eevee', speed: 7, catchDifficulty: 0.35, size: 'small', color: '#B08968', modelScale: 0.85 },
-  { name: 'Snorlax', speed: 2.5, catchDifficulty: 0.7, size: 'large', color: '#4D908E', modelScale: 1.45 },
-  { name: 'Jigglypuff', speed: 4, catchDifficulty: 0.6, size: 'small', color: '#F6BDC0', modelScale: 0.85 },
-  { name: 'Mew', speed: 6.5, catchDifficulty: 0.25, size: 'small', color: '#F0A1C8', modelScale: 0.9 },
-  { name: 'Magikarp', speed: 3, catchDifficulty: 0.8, size: 'small', color: '#E85D3A', modelScale: 0.9 },
-  { name: 'Marill', speed: 4.5, catchDifficulty: 0.55, size: 'small', color: '#5B9BD5', modelScale: 0.9 },
-  { name: 'Porygon', speed: 5, catchDifficulty: 0.45, size: 'small', color: '#E07B9E', modelScale: 0.9 },
-  { name: 'Magnemite', speed: 5.5, catchDifficulty: 0.4, size: 'small', color: '#A8B8C8', modelScale: 0.9 },
-  { name: 'Bellsprout', speed: 4, catchDifficulty: 0.6, size: 'small', color: '#8BC34A', modelScale: 0.95 },
+  { name: 'Charmeleon', speed: 5.5, catchDifficulty: 0.45, size: 'medium', color: '#E74C3C', modelScale: 1.0 },
+  { name: 'Charizard', speed: 6, catchDifficulty: 0.35, size: 'large', color: '#D35400', modelScale: 1.4 },
+  { name: 'Squirtle', speed: 4.5, catchDifficulty: 0.5, size: 'small', color: '#5FA8D3', modelScale: 0.95 },
+  { name: 'Wartortle', speed: 5, catchDifficulty: 0.45, size: 'medium', color: '#2E86C1', modelScale: 1.0 },
+  { name: 'Blastoise', speed: 3.5, catchDifficulty: 0.65, size: 'large', color: '#1A5276', modelScale: 1.35 },
 ];
 
 export interface Player {
