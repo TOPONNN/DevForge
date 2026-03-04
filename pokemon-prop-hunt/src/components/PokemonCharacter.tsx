@@ -30,19 +30,20 @@ const TARGET_HEIGHTS: Record<string, number> = {
   Blastoise: 1.8,
 };
 
-// Hardcoded fallback scales computed from known model dimensions:
-// scale = targetHeight / (rootArmatureScale × vertexHeight)
-// Most models have Armature root scale 10; Ivysaur has scale 1
+// Corrected fallback scales: these match what updateMatrixWorld + Box3 produces.
+// Most models have Armature root scale 10 baked into the world matrix,
+// so Box3 reports the full baked height. scale = targetHeight * modelScale / bakedHeight.
+// Ivysaur is the exception with Armature scale 1.
 const FALLBACK_SCALES: Record<string, number> = {
-  Bulbasaur: 0.00806,
+  Bulbasaur: 0.0806,
   Ivysaur: 0.945,
-  Venusaur: 0.0094,
-  Charmander: 0.01672,
-  Charmeleon: 0.01057,
-  Charizard: 0.01036,
-  Squirtle: 0.02276,
-  Wartortle: 0.00897,
-  Blastoise: 0.01306,
+  Venusaur: 0.094,
+  Charmander: 0.1672,
+  Charmeleon: 0.1057,
+  Charizard: 0.1036,
+  Squirtle: 0.2276,
+  Wartortle: 0.0897,
+  Blastoise: 0.1306,
 };
 
 // Verified against actual GLB animation clip names (parsed from binary GLTF data)
@@ -177,6 +178,8 @@ function PokemonModelGLTF({
     }
 
     const next = mixer.clipAction(nextClip);
+    next.setLoop(THREE.LoopRepeat, Infinity);
+    next.clampWhenFinished = false;
     next.reset().fadeIn(0.3).play();
 
     if (currentAction.current && currentAction.current !== next) {
@@ -369,7 +372,7 @@ export default function PokemonCharacter({
           ))
         : null}
 
-      <Text position={[0, 1.3, 0]} fontSize={0.22} color="#FFFFFF" outlineColor="#1D3557" outlineWidth={0.04}>
+      <Text position={[0, (TARGET_HEIGHTS[species.name] ?? 1.0) + 0.3, 0]} fontSize={0.22} color="#FFFFFF" outlineColor="#1D3557" outlineWidth={0.04}>
         {name}
       </Text>
     </group>

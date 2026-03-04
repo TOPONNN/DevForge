@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
@@ -42,6 +42,7 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   const dodgeHeldRef = useRef(false);
   const groundedRef = useRef(false);
   const footstepTimerRef = useRef(0);
+  const pokemonMovingRef = useRef(false);
   const moveDirection = useMemo(() => new THREE.Vector3(), []);
   const cameraTargetPosition = useMemo(() => new THREE.Vector3(), []);
   const cameraLookAt = useMemo(() => new THREE.Vector3(), []);
@@ -150,6 +151,13 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       footstepTimerRef.current = 0;
     }
 
+    // Update pokemonMoving state for animation (only setState when changed to avoid unnecessary re-renders)
+    const movingNow = moveDirection.lengthSq() > 0 && pointerLocked && !isCaught;
+    if (movingNow !== pokemonMovingRef.current) {
+      pokemonMovingRef.current = movingNow;
+      setPokemonMoving(movingNow);
+    }
+
     setLocalTransform(
       [translation.x, translation.y, translation.z],
       [pitchRef.current, yawRef.current, 0],
@@ -160,8 +168,8 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     );
   });
 
-  const pokemonMoving =
-    keysRef.current.forward || keysRef.current.backward || keysRef.current.left || keysRef.current.right;
+  // Track pokemon moving state via useState so PokemonCharacter re-renders on change
+  const [pokemonMoving, setPokemonMoving] = useState(false);
 
   return (
     <RigidBody
