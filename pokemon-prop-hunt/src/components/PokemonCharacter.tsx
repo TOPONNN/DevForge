@@ -7,15 +7,15 @@ import { SkeletonUtils } from 'three-stdlib';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
-  Bulbasaur: '/models/bulbasaur.glb',
-  Ivysaur: '/models/ivysaur.glb',
-  Venusaur: '/models/venusaur.glb',
-  Charmander: '/models/charmander.glb',
-  Charmeleon: '/models/charmeleon.glb',
-  Charizard: '/models/charizard.glb',
-  Squirtle: '/models/squirtle.glb',
-  Wartortle: '/models/wartortle.glb',
-  Blastoise: '/models/blastoise.glb',
+  Bulbasaur: '/models/bulbasaur.glb?v=2',
+  Ivysaur: '/models/ivysaur.glb?v=2',
+  Venusaur: '/models/venusaur.glb?v=2',
+  Charmander: '/models/charmander.glb?v=2',
+  Charmeleon: '/models/charmeleon.glb?v=2',
+  Charizard: '/models/charizard.glb?v=2',
+  Squirtle: '/models/squirtle.glb?v=2',
+  Wartortle: '/models/wartortle.glb?v=2',
+  Blastoise: '/models/blastoise.glb?v=2',
 };
 
 const TARGET_HEIGHTS: Record<string, number> = {
@@ -379,12 +379,12 @@ export default function PokemonCharacter({
   );
 }
 
-useGLTF.preload('/models/bulbasaur.glb');
-useGLTF.preload('/models/ivysaur.glb');
-useGLTF.preload('/models/venusaur.glb');
-useGLTF.preload('/models/charmander.glb');
-useGLTF.preload('/models/charmeleon.glb');
-useGLTF.preload('/models/charizard.glb');
-useGLTF.preload('/models/squirtle.glb');
-useGLTF.preload('/models/wartortle.glb');
-useGLTF.preload('/models/blastoise.glb');
+useGLTF.preload('/models/bulbasaur.glb?v=2');
+useGLTF.preload('/models/ivysaur.glb?v=2');
+useGLTF.preload('/models/venusaur.glb?v=2');
+useGLTF.preload('/models/charmander.glb?v=2');
+useGLTF.preload('/models/charmeleon.glb?v=2');
+useGLTF.preload('/models/charizard.glb?v=2');
+useGLTF.preload('/models/squirtle.glb?v=2');
+useGLTF.preload('/models/wartortle.glb?v=2');
+useGLTF.preload('/models/blastoise.glb?v=2');

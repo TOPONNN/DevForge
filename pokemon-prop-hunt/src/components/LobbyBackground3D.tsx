@@ -240,7 +240,7 @@ const POKEMON_PLACEMENTS: PokemonPlacement[] = [
 function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
   const groupRef = useRef<THREE.Group>(null);
   const innerRef = useRef<THREE.Group>(null);
-  const modelPath = `/models/${placement.model}.glb`;
+  const modelPath = `/models/${placement.model}.glb?v=2`;
   const { scene, animations } = useGLTF(modelPath);
 
   // Clone scene and compute proper normalized scale
@@ -636,12 +636,12 @@ export default function LobbyBackground3D() {
 }
 
 /* Preload all 9 Pokemon models */
-useGLTF.preload('/models/charizard.glb');
-useGLTF.preload('/models/bulbasaur.glb');
-useGLTF.preload('/models/ivysaur.glb');
-useGLTF.preload('/models/venusaur.glb');
-useGLTF.preload('/models/charmander.glb');
-useGLTF.preload('/models/charmeleon.glb');
-useGLTF.preload('/models/squirtle.glb');
-useGLTF.preload('/models/wartortle.glb');
-useGLTF.preload('/models/blastoise.glb');
+useGLTF.preload('/models/charizard.glb?v=2');
+useGLTF.preload('/models/bulbasaur.glb?v=2');
+useGLTF.preload('/models/ivysaur.glb?v=2');
+useGLTF.preload('/models/venusaur.glb?v=2');
+useGLTF.preload('/models/charmander.glb?v=2');
+useGLTF.preload('/models/charmeleon.glb?v=2');
+useGLTF.preload('/models/squirtle.glb?v=2');
+useGLTF.preload('/models/wartortle.glb?v=2');
+useGLTF.preload('/models/blastoise.glb?v=2');
