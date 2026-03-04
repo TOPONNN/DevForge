@@ -1,22 +1,79 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
 /* ─────────────────────────────────────────────────────────
-   Idle animation clip names (verified from GLB data)
+   Animation sequences — cycle through these for each Pokemon
    ───────────────────────────────────────────────────────── */
-const IDLE_CLIPS: Record<string, string> = {
-  bulbasaur: 'waitA01',
-  ivysaur: 'defaultwait01_loop',
-  venusaur: 'waitA01',
-  charmander: 'loop01',
-  charmeleon: 'loop01',
-  charizard: 'loop01',
-  squirtle: 'defaultwait01_loop.tranm',
-  wartortle: 'waitA01',
-  blastoise: 'waitA01',
+interface AnimSequence {
+  clip: string;
+  duration: number; // how long to play (seconds), 0 = use clip duration
+  loop: boolean;
+}
+
+const ANIM_SEQUENCES: Record<string, AnimSequence[]> = {
+  charizard: [
+    { clip: 'loop01', duration: 5, loop: true },
+    { clip: 'roar01', duration: 0, loop: false },
+    { clip: 'loop01', duration: 4, loop: true },
+    { clip: 'Attack1', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 4, loop: true },
+    { clip: 'Attack2', duration: 0, loop: false },
+    { clip: 'loop01', duration: 5, loop: true },
+    { clip: 'happyB01', duration: 0, loop: false },
+  ],
+  bulbasaur: [
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'happyA01', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 4, loop: true },
+    { clip: 'Attack01', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'roar01', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 3, loop: true },
+    { clip: 'happyC01', duration: 0, loop: false },
+  ],
+  ivysaur: [
+    { clip: 'defaultwait01_loop', duration: 4, loop: true },
+    { clip: 'attack01', duration: 0, loop: false },
+    { clip: 'defaultwait01_loop', duration: 5, loop: true },
+    { clip: 'glad01', duration: 0, loop: false },
+    { clip: 'run01_loop', duration: 3, loop: true },
+    { clip: 'notice01', duration: 0, loop: false },
+    { clip: 'defaultwait01_loop', duration: 4, loop: true },
+    { clip: 'rangeattack01', duration: 0, loop: false },
+  ],
+  squirtle: [
+    { clip: 'defaultwait01_loop.tranm', duration: 4, loop: true },
+    { clip: 'attack01.tranm', duration: 0, loop: false },
+    { clip: 'defaultwait01_loop.tranm', duration: 5, loop: true },
+    { clip: 'glad01.tranm', duration: 0, loop: false },
+    { clip: 'defaultwait01_loop.tranm', duration: 4, loop: true },
+    { clip: 'roar01.tranm', duration: 0, loop: false },
+    { clip: 'run01_loop.tranm', duration: 3, loop: true },
+    { clip: 'rangeattack01.tranm', duration: 0, loop: false },
+  ],
+  wartortle: [
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'Attack1', duration: 0, loop: false },
+    { clip: 'waitB01', duration: 4, loop: true },
+    { clip: 'happyB01', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'Attack2', duration: 0, loop: false },
+    { clip: 'walk01', duration: 3, loop: true },
+    { clip: 'roar01', duration: 0, loop: false },
+  ],
+  blastoise: [
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'Attack1', duration: 0, loop: false },
+    { clip: 'waitB01', duration: 4, loop: true },
+    { clip: 'roar01', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 4, loop: true },
+    { clip: 'Attack3', duration: 0, loop: false },
+    { clip: 'waitA01', duration: 5, loop: true },
+    { clip: 'happyB01', duration: 0, loop: false },
+  ],
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -25,85 +82,93 @@ const IDLE_CLIPS: Record<string, string> = {
 interface PokemonPlacement {
   model: string;
   position: [number, number, number];
-  rotation: number; // Y-axis rotation in radians
-  scale: number;
+  facingAngle: number; // Y-axis rotation (radians) — faces camera at ~0
+  targetHeight: number; // desired height in world units
   bobSpeed: number;
   bobAmount: number;
   bobPhase: number;
+  animDelay: number; // seconds before starting animation cycle
 }
 
 const POKEMON_PLACEMENTS: PokemonPlacement[] = [
   // Center-back: Charizard — hero, large and dramatic
   {
     model: 'charizard',
-    position: [0, 0.6, -2],
-    rotation: 0,
-    scale: 0.0055,
+    position: [0, 0, -2.5],
+    facingAngle: 0,
+    targetHeight: 3.5,
     bobSpeed: 1.2,
-    bobAmount: 0.15,
+    bobAmount: 0.12,
     bobPhase: 0,
+    animDelay: 0,
   },
-  // Left front: Bulbasaur
+  // Left front: Bulbasaur — small, cute
   {
     model: 'bulbasaur',
-    position: [-3.5, 0, 1.5],
-    rotation: 0.4,
-    scale: 0.004,
+    position: [-3.8, 0, 2.0],
+    facingAngle: 0.35,
+    targetHeight: 1.5,
     bobSpeed: 1.5,
-    bobAmount: 0.08,
+    bobAmount: 0.06,
     bobPhase: 1.2,
+    animDelay: 2,
   },
-  // Left mid: Ivysaur
+  // Left mid: Ivysaur — medium
   {
     model: 'ivysaur',
-    position: [-2.0, 0, -0.5],
-    rotation: 0.3,
-    scale: 0.048,
+    position: [-2.5, 0, -0.5],
+    facingAngle: 0.25,
+    targetHeight: 2.0,
     bobSpeed: 1.3,
-    bobAmount: 0.1,
+    bobAmount: 0.08,
     bobPhase: 2.4,
+    animDelay: 1,
   },
-  // Right front: Squirtle
+  // Right front: Squirtle — small, cute
   {
     model: 'squirtle',
-    position: [3.5, 0, 1.5],
-    rotation: -0.4,
-    scale: 0.012,
+    position: [3.8, 0, 2.0],
+    facingAngle: -0.35,
+    targetHeight: 1.5,
     bobSpeed: 1.6,
-    bobAmount: 0.08,
+    bobAmount: 0.06,
     bobPhase: 0.8,
+    animDelay: 3,
   },
-  // Right mid: Wartortle
+  // Right mid: Wartortle — medium
   {
     model: 'wartortle',
-    position: [2.0, 0, -0.5],
-    rotation: -0.3,
-    scale: 0.0045,
+    position: [2.5, 0, -0.5],
+    facingAngle: -0.25,
+    targetHeight: 2.0,
     bobSpeed: 1.4,
-    bobAmount: 0.1,
+    bobAmount: 0.08,
     bobPhase: 3.6,
+    animDelay: 1.5,
   },
-  // Far right back: Blastoise
+  // Far right back: Blastoise — big tank
   {
     model: 'blastoise',
-    position: [4.2, 0, -2.5],
-    rotation: -0.5,
-    scale: 0.006,
+    position: [4.0, 0, -1.5],
+    facingAngle: -0.5,
+    targetHeight: 3.0,
     bobSpeed: 1.0,
-    bobAmount: 0.12,
+    bobAmount: 0.1,
     bobPhase: 4.8,
+    animDelay: 0.5,
   },
 ];
 
 /* ─────────────────────────────────────────────────────────
-   Single animated Pokemon model
+   Single animated Pokemon model — CORRECT scale/rotation
    ───────────────────────────────────────────────────────── */
 function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
   const groupRef = useRef<THREE.Group>(null);
   const modelPath = `/models/${placement.model}.glb`;
   const { scene, animations } = useGLTF(modelPath);
 
-  const clonedScene = useMemo(() => {
+  // Clone scene and compute proper normalized scale
+  const { clonedScene, normalizedScale, minY } = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
     cloned.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -114,27 +179,109 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
         (child as THREE.SkinnedMesh).frustumCulled = false;
       }
     });
-    return cloned;
-  }, [scene]);
 
-  // Animation
+    // CRITICAL: Force world matrix computation on cloned scene
+    // Without this, Box3 uses stale/identity matrices (wrong bounds)
+    cloned.updateMatrixWorld(true);
+
+    const bounds = new THREE.Box3().setFromObject(cloned);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+
+    const actualHeight = size.y;
+    let scale = actualHeight > 0.001
+      ? placement.targetHeight / actualHeight
+      : 0.1;
+
+    // Sanity clamp
+    if (!isFinite(scale) || scale <= 0) scale = 0.1;
+
+    return {
+      clonedScene: cloned,
+      normalizedScale: scale,
+      minY: isFinite(bounds.min.y) ? bounds.min.y : 0,
+    };
+  }, [scene, placement.targetHeight]);
+
+  // Animation mixer bound directly to clonedScene
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
 
-  useEffect(() => {
-    const idleClipName = IDLE_CLIPS[placement.model];
-    if (!idleClipName) return;
-    const clip = animations.find((c) => c.name === idleClipName);
-    if (!clip) return;
+  // Build clip lookup
+  const clipsByName = useMemo(() => {
+    const m: Record<string, THREE.AnimationClip> = {};
+    for (const c of animations) m[c.name] = c;
+    return m;
+  }, [animations]);
+
+  // Animation sequencing state
+  const [seqIndex, setSeqIndex] = useState(0);
+  const currentActionRef = useRef<THREE.AnimationAction | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedRef = useRef(false);
+
+  const sequence = ANIM_SEQUENCES[placement.model] ?? [];
+
+  const playSequenceStep = useCallback((idx: number) => {
+    if (sequence.length === 0) return;
+    const step = sequence[idx % sequence.length];
+    const clip = clipsByName[step.clip];
+    if (!clip) {
+      // Skip missing clips
+      const nextIdx = (idx + 1) % sequence.length;
+      setSeqIndex(nextIdx);
+      return;
+    }
 
     const action = mixer.clipAction(clip);
-    action.setLoop(THREE.LoopRepeat, Infinity);
-    action.play();
+    action.reset();
+    action.setLoop(
+      step.loop ? THREE.LoopRepeat : THREE.LoopOnce,
+      step.loop ? Infinity : 1,
+    );
+    action.clampWhenFinished = !step.loop;
+
+    // Crossfade from previous
+    if (currentActionRef.current && currentActionRef.current !== action) {
+      currentActionRef.current.fadeOut(0.4);
+    }
+    action.fadeIn(0.4).play();
+    currentActionRef.current = action;
+
+    // Schedule next step
+    const duration = step.duration > 0
+      ? step.duration * 1000
+      : clip.duration * 1000;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      const nextIdx = (idx + 1) % sequence.length;
+      setSeqIndex(nextIdx);
+    }, duration);
+  }, [clipsByName, mixer, sequence]);
+
+  // Start sequence after delay
+  useEffect(() => {
+    const delayTimer = setTimeout(() => {
+      startedRef.current = true;
+      playSequenceStep(0);
+    }, placement.animDelay * 1000);
 
     return () => {
+      clearTimeout(delayTimer);
+      if (timerRef.current) clearTimeout(timerRef.current);
       mixer.stopAllAction();
       mixer.uncacheRoot(clonedScene);
     };
-  }, [animations, clonedScene, mixer, placement.model]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // React to sequence index changes
+  useEffect(() => {
+    if (startedRef.current && seqIndex > 0) {
+      playSequenceStep(seqIndex);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seqIndex]);
 
   // Frame update: animation mixer + bobbing
   useFrame((_, delta) => {
@@ -151,11 +298,11 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
     <group
       ref={groupRef}
       position={placement.position}
-      rotation={[0, placement.rotation, 0]}
-      scale={placement.scale}
+      rotation={[0, placement.facingAngle, 0]}
     >
-      <group rotation={[Math.PI / 2, 0, 0]} scale={10}>
-        <primitive object={clonedScene} />
+      {/* normalizedScale places the model on ground, NO extra Armature rotation */}
+      <group scale={normalizedScale}>
+        <primitive object={clonedScene} position={[0, -minY, 0]} />
       </group>
     </group>
   );
@@ -167,7 +314,7 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
 function GroundPlatform() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-      <circleGeometry args={[12, 64]} />
+      <circleGeometry args={[14, 64]} />
       <meshStandardMaterial
         color="#1a1030"
         roughness={0.3}
@@ -192,10 +339,16 @@ function GroundRing() {
   });
 
   return (
-    <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <ringGeometry args={[5.5, 6.0, 64]} />
-      <meshBasicMaterial color="#ffd60a" transparent opacity={0.12} side={THREE.DoubleSide} />
-    </mesh>
+    <>
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <ringGeometry args={[6.0, 6.4, 64]} />
+        <meshBasicMaterial color="#ffd60a" transparent opacity={0.15} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[8.0, 8.2, 64]} />
+        <meshBasicMaterial color="#457b9d" transparent opacity={0.08} side={THREE.DoubleSide} />
+      </mesh>
+    </>
   );
 }
 
@@ -203,16 +356,16 @@ function GroundRing() {
    Floating particles for atmosphere
    ───────────────────────────────────────────────────────── */
 function FloatingParticles() {
-  const count = 80;
+  const count = 100;
   const pointsRef = useRef<THREE.Points>(null);
 
   const { positions, speeds } = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const spd = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = Math.random() * 10;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 20;
+      pos[i * 3] = (Math.random() - 0.5) * 24;
+      pos[i * 3 + 1] = Math.random() * 12;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 24;
       spd[i] = 0.2 + Math.random() * 0.5;
     }
     return { positions: pos, speeds: spd };
@@ -225,8 +378,8 @@ function FloatingParticles() {
     const arr = posAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += speeds[i] * 0.005;
-      if (arr[i * 3 + 1] > 10) arr[i * 3 + 1] = 0;
+      arr[i * 3 + 1] += speeds[i] * 0.004;
+      if (arr[i * 3 + 1] > 12) arr[i * 3 + 1] = 0;
     }
     posAttr.needsUpdate = true;
   });
@@ -242,9 +395,9 @@ function FloatingParticles() {
       </bufferGeometry>
       <pointsMaterial
         color="#ffd60a"
-        size={0.05}
+        size={0.06}
         transparent
-        opacity={0.4}
+        opacity={0.35}
         sizeAttenuation
       />
     </points>
@@ -252,14 +405,14 @@ function FloatingParticles() {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Scene background gradient via shader
+   Scene background + fog
    ───────────────────────────────────────────────────────── */
 function SceneSetup() {
   const { scene } = useThree();
 
   useEffect(() => {
     scene.background = new THREE.Color('#080418');
-    scene.fog = new THREE.Fog('#080418', 10, 28);
+    scene.fog = new THREE.Fog('#080418', 12, 30);
   }, [scene]);
 
   return null;
@@ -273,37 +426,34 @@ export default function LobbyBackground3D() {
     <div className="lobby-3d-background">
       <Canvas
         shadows
-        camera={{ position: [0, 3.5, 11], fov: 50 }}
+        camera={{ position: [0, 3, 12], fov: 50 }}
         gl={{ antialias: true, alpha: false }}
       >
         <SceneSetup />
 
         {/* Lighting */}
-        <ambientLight intensity={0.35} color="#b8c4ff" />
+        <ambientLight intensity={0.6} color="#d0d8ff" />
         <directionalLight
-          position={[5, 8, 4]}
-          intensity={1.2}
+          position={[5, 10, 5]}
+          intensity={2.0}
           color="#fff5e6"
           castShadow
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
-          shadow-camera-left={-10}
-          shadow-camera-right={10}
-          shadow-camera-top={10}
-          shadow-camera-bottom={-10}
+          shadow-camera-left={-12}
+          shadow-camera-right={12}
+          shadow-camera-top={12}
+          shadow-camera-bottom={-12}
         />
+        {/* Fill light from below-front */}
+        <directionalLight position={[-3, 2, 8]} intensity={0.8} color="#b8c4ff" />
 
-        {/* Colored accent lights */}
-        {/* Charizard — warm fire glow */}
-        <pointLight position={[0, 2, -1.5]} intensity={15} color="#ff6b2b" distance={8} />
-        {/* Bulbasaur/Ivysaur — green glow */}
-        <pointLight position={[-3, 1.5, 0.5]} intensity={10} color="#2a9d8f" distance={7} />
-        {/* Squirtle/Wartortle — blue glow */}
-        <pointLight position={[3, 1.5, 0.5]} intensity={10} color="#457b9d" distance={7} />
-        {/* Blastoise — deep blue */}
-        <pointLight position={[4.5, 1.5, -2]} intensity={8} color="#3d5afe" distance={6} />
-        {/* Floor rim light */}
-        <pointLight position={[0, 0.3, 5]} intensity={5} color="#ffd60a" distance={10} />
+        {/* Colored accent lights per Pokemon type */}
+        <pointLight position={[0, 3.5, -2]} intensity={30} color="#ff6b2b" distance={12} />
+        <pointLight position={[-3.5, 2.5, 1.5]} intensity={18} color="#2a9d8f" distance={10} />
+        <pointLight position={[3.5, 2.5, 1.5]} intensity={18} color="#457b9d" distance={10} />
+        <pointLight position={[4.5, 2.5, -2.5]} intensity={15} color="#3d5afe" distance={9} />
+        <pointLight position={[0, 0.5, 8]} intensity={10} color="#ffd60a" distance={14} />
 
         {/* Ground */}
         <GroundPlatform />
@@ -322,7 +472,7 @@ export default function LobbyBackground3D() {
         {/* Camera controls */}
         <OrbitControls
           autoRotate
-          autoRotateSpeed={0.4}
+          autoRotateSpeed={0.35}
           enableZoom={false}
           enablePan={false}
           enableRotate={false}
