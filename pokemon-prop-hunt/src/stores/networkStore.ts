@@ -43,6 +43,7 @@ interface NetworkState {
   sendCatchAttempt: (throwData: ThrowData) => void;
   sendSpeciesSelect: (speciesName: string) => void;
   sendChat: (text: string) => void;
+  sendRoleSelect: (role: 'trainer' | 'pokemon') => void;
   startGame: () => void;
 
   // Bot actions
@@ -538,6 +539,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         timestamp: Date.now(),
       },
     });
+  },
+
+  sendRoleSelect: (role) => {
+    const { ws, playerId } = get();
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    ws.send(JSON.stringify({ type: 'select_role', playerId, data: { role } }));
   },
 
   startGame: () => {

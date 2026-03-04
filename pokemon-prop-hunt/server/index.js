@@ -166,8 +166,23 @@ function assignRoles(room) {
   if (players.length === 0) {
     return;
   }
-  players.forEach((player, index) => {
-    player.role = index === 0 ? 'trainer' : 'pokemon';
+
+  const trainers = players.filter((player) => player.role === 'trainer');
+  const pokemons = players.filter((player) => player.role === 'pokemon');
+  if (trainers.length > 0 && pokemons.length > 0) {
+    return;
+  }
+
+  const humans = players.filter((player) => !player.isBot);
+  const bots = players.filter((player) => player.isBot);
+  if (humans.length > 0) {
+    humans[0].role = 'trainer';
+    humans.slice(1).forEach((player) => {
+      player.role = 'pokemon';
+    });
+  }
+  bots.forEach((player) => {
+    player.role = 'pokemon';
   });
 }
 
@@ -252,7 +267,7 @@ function addPlayerToRoom(ws, room, playerName) {
     return false;
   }
 
-  const role = room.players.size === 0 ? 'trainer' : 'pokemon';
+  const role = 'pokemon';
   const player = {
     id: ws.clientId,
     name: String(playerName || 'Trainer').slice(0, 20),
@@ -475,6 +490,33 @@ function handleSpeciesSelect(ws, data) {
   emitRoomState(room);
 }
 
+function handleSelectRole(ws, data) {
+  const room = rooms.get(ws.roomCode);
+  if (!room || room.phase !== 'lobby') {
+    return;
+  }
+
+  const player = room.players.get(ws.clientId);
+  if (!player) {
+    return;
+  }
+
+  const requestedRole = data.role;
+  if (requestedRole !== 'trainer' && requestedRole !== 'pokemon') {
+    return;
+  }
+
+  player.role = requestedRole;
+  if (requestedRole === 'pokemon' && !player.species) {
+    player.species = { name: 'Pikachu', ...speciesStats.Pikachu };
+  }
+  if (requestedRole === 'trainer') {
+    player.species = undefined;
+  }
+
+  emitRoomState(room);
+}
+
 function handlePosition(ws, data) {
   const room = rooms.get(ws.roomCode);
   if (!room) {
@@ -613,6 +655,9 @@ wss.on('connection', (ws) => {
       }
       case 'species_select':
         handleSpeciesSelect(ws, data);
+        break;
+      case 'select_role':
+        handleSelectRole(ws, data);
         break;
       case 'start_game':
         handleStartGame(ws);

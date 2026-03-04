@@ -9,8 +9,6 @@ const CHANNELS = [
   { id: 2, name: '2 채널' },
   { id: 3, name: '3 채널' },
   { id: 4, name: '4 채널' },
-  { id: 5, name: '5 채널' },
-  { id: 6, name: '6 채널' },
 ];
 
 const MAX_PLAYER_OPTS = [4, 6, 8, 10, 12];
@@ -29,6 +27,7 @@ export default function LobbyScreen() {
   const disconnect = useNetworkStore((s) => s.disconnect);
   const sendReady = useNetworkStore((s) => s.sendReady);
   const sendSpeciesSelect = useNetworkStore((s) => s.sendSpeciesSelect);
+  const sendRoleSelect = useNetworkStore((s) => s.sendRoleSelect);
   const sendChat = useNetworkStore((s) => s.sendChat);
   const startGame = useNetworkStore((s) => s.startGame);
 
@@ -41,7 +40,7 @@ export default function LobbyScreen() {
   const addBot = useNetworkStore((s) => s.addBot);
   const removeBot = useNetworkStore((s) => s.removeBot);
 
-  const [name, setName] = useState('트레이너');
+  const [name, setName] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<'main' | 'nickname' | 'channels' | 'rooms'>('main');
@@ -75,6 +74,14 @@ export default function LobbyScreen() {
   const handleSelectChannel = (ch: number) => {
     connectLobby(ch);
     setView('rooms');
+  };
+
+  const handleGoToChannels = () => {
+    if (!name.trim()) {
+      alert('1글자 이상 입력해주세요');
+      return;
+    }
+    setView('channels');
   };
 
   const handleBackToChannels = () => {
@@ -142,8 +149,8 @@ export default function LobbyScreen() {
           backgroundSize: 'cover',
         }}
       >
-        <img className="lobby-title-sub" src="/images/text_title_sub.png" alt="" />
-        <img className="lobby-title-main" src="/images/text_title_brown.png" alt="" />
+        <p className="main-subtitle">숨어라! 잡아라! 포켓몬 숨바꼭질</p>
+        <h1 className="main-title">포켓몬 숨바꼭질</h1>
         <div className="lobby-guest-btn-wrap">
           <button
             type="button"
@@ -176,9 +183,10 @@ export default function LobbyScreen() {
               className="login-nickname-input"
               type="text"
               value={name}
+              placeholder="닉네임을 입력하세요"
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && name.trim()) setView('channels');
+                if (e.key === 'Enter') handleGoToChannels();
               }}
             />
           </div>
@@ -186,13 +194,7 @@ export default function LobbyScreen() {
             <button
               type="button"
               className="lobby-guest-btn btn-animation"
-              onClick={() => {
-                if (!name.trim()) {
-                  alert('1글자 이상 입력해주세요.');
-                  return;
-                }
-                setView('channels');
-              }}
+              onClick={handleGoToChannels}
             >
               Guest
             </button>
@@ -464,51 +466,71 @@ export default function LobbyScreen() {
             </div>
           </div>
 
-          <div className="room-detail-selection">
-            {localRole === 'pokemon' ? (
-              <>
-                <h2>포켓몬 선택</h2>
-                <PokemonSelect selectedSpecies={selectedSpecies} onSelect={handleSelectSpecies} />
-              </>
-            ) : (
-              <div className="trainer-status">
-                <span className="trainer-status-icon">⚡</span>
-                <span>당신은 <strong>트레이너</strong>입니다.<br />몬스터볼을 던져 포켓몬을 잡으세요!</span>
+          <div className="room-detail-right">
+            <div className="room-detail-selection">
+              <h2>역할 선택</h2>
+              <div className="role-select-group">
+                <button
+                  type="button"
+                  className={`role-select-btn ${localRole === 'trainer' ? 'active' : ''}`}
+                  onClick={() => sendRoleSelect('trainer')}
+                >
+                  트레이너 (잡는 사람)
+                </button>
+                <button
+                  type="button"
+                  className={`role-select-btn ${localRole === 'pokemon' ? 'active' : ''}`}
+                  onClick={() => sendRoleSelect('pokemon')}
+                >
+                  포켓몬 (숨는 사람)
+                </button>
               </div>
-            )}
-          </div>
 
-          <div className="room-detail-chat">
-            <h2>채팅</h2>
-            <div className="chat-log">
-              {chat.map((message) => (
-                <div key={`${message.timestamp}-${message.playerId}`} className="chat-message">
-                  <strong>{message.playerName}:</strong> {message.text}
+              {localRole === 'pokemon' ? (
+                <>
+                  <h2>포켓몬 선택</h2>
+                  <PokemonSelect selectedSpecies={selectedSpecies} onSelect={handleSelectSpecies} />
+                </>
+              ) : (
+                <div className="trainer-status">
+                  <span className="trainer-status-icon">⚡</span>
+                  <span>당신은 <strong>트레이너</strong>입니다.<br />몬스터볼을 던져 포켓몬을 잡으세요!</span>
                 </div>
-              ))}
+              )}
             </div>
-            <div className="chat-input-row">
-              <input
-                value={chatInput}
-                placeholder="메시지 입력..."
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+
+            <div className="room-detail-chat">
+              <h2>채팅</h2>
+              <div className="chat-log">
+                {chat.map((message) => (
+                  <div key={`${message.timestamp}-${message.playerId}`} className="chat-message">
+                    <strong>{message.playerName}:</strong> {message.text}
+                  </div>
+                ))}
+              </div>
+              <div className="chat-input-row">
+                <input
+                  value={chatInput}
+                  placeholder="메시지 입력..."
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      sendChat(chatInput);
+                      setChatInput('');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="chat-send-btn"
+                  onClick={() => {
                     sendChat(chatInput);
                     setChatInput('');
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="chat-send-btn"
-                onClick={() => {
-                  sendChat(chatInput);
-                  setChatInput('');
-                }}
-              >
-                보내기
-              </button>
+                  }}
+                >
+                  보내기
+                </button>
+              </div>
             </div>
           </div>
         </div>
