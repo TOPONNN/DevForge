@@ -18,6 +18,16 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  data:
+    redis:
+      host: redis
+      port: 6379
+      timeout: 5000
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: pokemon
+    password: pokemon1234
 
 cors:
   allowed-origins: http://localhost:5173,http://topon.dev,https://topon.dev
