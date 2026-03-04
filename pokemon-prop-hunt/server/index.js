@@ -15,14 +15,15 @@ const SPAWN_EDGE_BAND = 5;
 const SPAWN_HEIGHT = 0.5;
 
 const speciesStats = {
-  Pikachu: { speed: 6, catchDifficulty: 0.4, size: 'small', color: '#FFD60A', modelScale: 0.9 },
+  Bulbasaur: { speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#2A9D8F', modelScale: 1.0 },
+  Ivysaur: { speed: 4, catchDifficulty: 0.55, size: 'medium', color: '#1E8449', modelScale: 0.9 },
+  Venusaur: { speed: 3, catchDifficulty: 0.7, size: 'large', color: '#196F3D', modelScale: 1.3 },
   Charmander: { speed: 5, catchDifficulty: 0.5, size: 'small', color: '#F77F00', modelScale: 0.95 },
-  Bulbasaur: { speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#2A9D8F', modelScale: 1 },
-  Squirtle: { speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#5FA8D3', modelScale: 0.95 },
-  Eevee: { speed: 7, catchDifficulty: 0.35, size: 'small', color: '#B08968', modelScale: 0.85 },
-  Snorlax: { speed: 2.5, catchDifficulty: 0.7, size: 'large', color: '#4D908E', modelScale: 1.45 },
-  Gengar: { speed: 5.5, catchDifficulty: 0.3, size: 'medium', color: '#4361EE', modelScale: 1.05 },
-  Jigglypuff: { speed: 4, catchDifficulty: 0.6, size: 'small', color: '#F6BDC0', modelScale: 0.85 },
+  Charmeleon: { speed: 5.5, catchDifficulty: 0.45, size: 'medium', color: '#E74C3C', modelScale: 1.0 },
+  Charizard: { speed: 6, catchDifficulty: 0.35, size: 'large', color: '#D35400', modelScale: 1.4 },
+  Squirtle: { speed: 4.5, catchDifficulty: 0.5, size: 'small', color: '#5FA8D3', modelScale: 0.95 },
+  Wartortle: { speed: 5, catchDifficulty: 0.45, size: 'medium', color: '#2E86C1', modelScale: 1.0 },
+  Blastoise: { speed: 3.5, catchDifficulty: 0.65, size: 'large', color: '#1A5276', modelScale: 1.35 },
 };
 
 const rooms = new Map();
@@ -237,7 +238,7 @@ function startRound(room) {
     player.position = getSpawnPosition(player.role);
     player.rotation = [0, Math.random() * Math.PI * 2, 0];
     if (player.role === 'pokemon' && !player.species) {
-      player.species = { name: 'Pikachu', ...speciesStats.Pikachu };
+      player.species = { name: 'Bulbasaur', ...speciesStats.Bulbasaur };
     }
   }
   setPhase(room, 'preparing', PREP_TIME);
@@ -246,7 +247,7 @@ function startRound(room) {
 
 function randomPokemonName() {
   const names = Object.keys(speciesStats);
-  return names[Math.floor(Math.random() * names.length)] || 'Pikachu';
+  return names[Math.floor(Math.random() * names.length)] || 'Bulbasaur';
 }
 
 function nextBotId(room) {
@@ -274,7 +275,7 @@ function addPlayerToRoom(ws, room, playerName) {
     role,
     position: getSpawnPosition(role),
     rotation: [0, 0, 0],
-    species: role === 'pokemon' ? { name: 'Pikachu', ...speciesStats.Pikachu } : undefined,
+    species: role === 'pokemon' ? { name: 'Bulbasaur', ...speciesStats.Bulbasaur } : undefined,
     isAlive: true,
     isCaught: false,
     score: 0,
@@ -484,8 +485,8 @@ function handleSpeciesSelect(ws, data) {
   if (!player || player.role !== 'pokemon') {
     return;
   }
-  const speciesName = String(data.speciesName || 'Pikachu');
-  const stats = speciesStats[speciesName] || speciesStats.Pikachu;
+  const speciesName = String(data.speciesName || 'Bulbasaur');
+  const stats = speciesStats[speciesName] || speciesStats.Bulbasaur;
   player.species = { name: speciesName, ...stats };
   emitRoomState(room);
 }
@@ -508,7 +509,7 @@ function handleSelectRole(ws, data) {
 
   player.role = requestedRole;
   if (requestedRole === 'pokemon' && !player.species) {
-    player.species = { name: 'Pikachu', ...speciesStats.Pikachu };
+    player.species = { name: 'Bulbasaur', ...speciesStats.Bulbasaur };
   }
   if (requestedRole === 'trainer') {
     player.species = undefined;
@@ -822,7 +823,7 @@ function steerAwayFromEdge(px, pz, mx, mz) {
 }
 
 function tickBotAI(bot, trainers, dt) {
-  const speed = bot.species?.speed || speciesStats.Pikachu.speed;
+  const speed = bot.species?.speed || speciesStats.Bulbasaur.speed;
   const size = bot.species?.size || 'medium';
   const now = Date.now();
 
