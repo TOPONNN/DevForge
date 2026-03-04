@@ -250,6 +250,16 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        // Enhance materials for vibrant game-quality look
+        const mesh = child as THREE.Mesh;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats) {
+          if (mat && 'roughness' in mat) {
+            const std = mat as THREE.MeshStandardMaterial;
+            std.roughness = Math.min(std.roughness, 0.35);
+            std.metalness = Math.max(std.metalness, 0.05);
+          }
+        }
       }
       if ((child as THREE.SkinnedMesh).isSkinnedMesh) {
         (child as THREE.SkinnedMesh).frustumCulled = false;
@@ -273,6 +283,7 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
       minY: isFinite(bounds.min.y) ? bounds.min.y : 0,
     };
   }, [scene, placement.targetHeight]);
+
 
   // drei's useAnimations: creates mixer + actions with correct root binding
   // This handles bone resolution reliably across all skeleton structures
@@ -558,10 +569,10 @@ export default function LobbyBackground3D() {
         <SceneSetup />
 
         {/* Lighting */}
-        <ambientLight intensity={0.6} color="#d0d8ff" />
+        <ambientLight intensity={0.9} color="#fff8f0" />
         <directionalLight
           position={[5, 10, 5]}
-          intensity={2.0}
+          intensity={2.5}
           color="#fff5e6"
           castShadow
           shadow-mapSize-width={1024}
@@ -572,12 +583,12 @@ export default function LobbyBackground3D() {
           shadow-camera-bottom={-14}
         />
         {/* Fill light from below-front */}
-        <directionalLight position={[-3, 2, 8]} intensity={0.8} color="#b8c4ff" />
+        <directionalLight position={[-3, 2, 8]} intensity={1.2} color="#ffe8d0" />
 
         {/* Colored accent lights per type region */}
-        <pointLight position={[0, 3.5, -2]} intensity={30} color="#ff6b2b" distance={12} />
-        <pointLight position={[-4.5, 2.5, 1.5]} intensity={18} color="#2a9d8f" distance={12} />
-        <pointLight position={[4.5, 2.5, 1.5]} intensity={18} color="#457b9d" distance={12} />
+        <pointLight position={[0, 3.5, -2]} intensity={25} color="#ff6b2b" distance={12} />
+        <pointLight position={[-4.5, 2.5, 1.5]} intensity={10} color="#60c0b0" distance={12} />
+        <pointLight position={[4.5, 2.5, 1.5]} intensity={10} color="#6090d0" distance={12} />
         <pointLight position={[-1, 2, 3]} intensity={12} color="#ff9843" distance={10} />
         <pointLight position={[5, 2.5, -2.5]} intensity={15} color="#3d5afe" distance={9} />
         <pointLight position={[0, 0.5, 8]} intensity={10} color="#ffd60a" distance={16} />
