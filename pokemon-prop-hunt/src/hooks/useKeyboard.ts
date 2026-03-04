@@ -51,6 +51,12 @@ export function useKeyboard() {
   const keysRef = useRef<KeyMap>({ ...DEFAULT_KEYS });
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip game keys when typing in input fields
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
     // Prevent default for game keys
     if (e.code in KEY_BINDINGS) {
       e.preventDefault();
@@ -60,6 +66,12 @@ export function useKeyboard() {
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    // Skip game keys when typing in input fields
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
     if (e.code in KEY_BINDINGS) {
       e.preventDefault();
       const action = KEY_BINDINGS[e.code];
