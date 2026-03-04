@@ -1,8 +1,8 @@
 import { AdaptiveDpr, AdaptiveEvents, Stats } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Bloom, EffectComposer } from '@react-three/postprocessing';
+import { Bloom, EffectComposer, GodRays } from '@react-three/postprocessing';
 import { Physics } from '@react-three/rapier';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useGameStore } from '../stores/gameStore';
@@ -29,7 +29,7 @@ function CameraSetup() {
   }, [camera]);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog('#D4E8C2', 40, 180);
+    scene.fog = new THREE.Fog('#C8DFB0', 50, 220);
     return () => {
       scene.fog = null;
     };
@@ -77,6 +77,7 @@ function RemotePlayers() {
 export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
   const showFps = false;
   const phase = useGameStore((state) => state.phase);
+  const sunRef = useRef<THREE.Mesh>(null!);
 
   if (phase === 'lobby' || phase === 'selecting') {
     return null;
@@ -90,7 +91,7 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
       camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
-      <color attach="background" args={['#87CEEB']} />
+      <color attach="background" args={['#B5D8F0']} />
       <CameraSetup />
 
       <Physics gravity={[0, -20, 0]} interpolate>
@@ -100,9 +101,15 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
         <PokeballSystem pointerLocked={pointerLocked} />
       </Physics>
 
+      <mesh ref={sunRef} position={[40, 50, 25]}>
+        <sphereGeometry args={[8, 32, 32]} />
+        <meshBasicMaterial color="#FFD080" />
+      </mesh>
+
       <CatchAnimation />
       <EffectComposer>
-        <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
+        <GodRays sun={sunRef} samples={60} density={0.96} decay={0.9} weight={0.4} exposure={0.6} clampMax={1} />
+        <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
       </EffectComposer>
       <AdaptiveDpr pixelated />
       <AdaptiveEvents />
