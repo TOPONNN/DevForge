@@ -366,6 +366,14 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: 'DNFBitBitv2', 'Jua', sans-serif;
   background: radial-gradient(ellipse at 50% 30%, rgba(10, 5, 32, 0.45), rgba(5, 2, 16, 0.7));
+  pointer-events: none; /* Allow clicks to pass through to 3D canvas */
+}
+.lobby-screen button,
+.lobby-screen a,
+.lobby-screen input,
+.lobby-screen select,
+.lobby-screen [role='button'] {
+  pointer-events: auto;
 }
 
 /* ===== MAIN SCREEN ===== */
