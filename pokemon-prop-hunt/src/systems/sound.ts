@@ -1,3 +1,5 @@
+import { Howl } from 'howler';
+
 type SoundName =
   | 'pokeball_throw'
   | 'pokeball_bounce'
@@ -25,7 +27,40 @@ const SOUND_COOLDOWNS: Record<SoundName, number> = {
   defeat: 5000,
 };
 
+type Mp3SoundName = Exclude<SoundName, 'footsteps'>;
+
+/**
+ * Sound file paths and volumes for each game event.
+ *
+ * pokeball_throw  → Pokeball Open (포켓볼 열리는 소리)
+ * pokeball_bounce → Pokémon plink (통통 튀는 효과음)
+ * catch_wiggle    → Pokeball Waiting (포켓볼 흔들림 소리)
+ * catch_success   → Caught a Pokemon! (포획 성공 팡파레)
+ * catch_fail      → Pokeball ComeBack (포켓볼 튕겨나가는 소리)
+ * pokemon_dodge   → Pokeball Return (회피 스워시 소리)
+ * round_start     → Pokemon Battle (배틀 시작 팡파레)
+ * round_end       → Classic Pokemon Heal (회복 징글)
+ * victory         → Pokemon Battle Win (승리 테마)
+ * defeat          → Low Health Pokémon (패배 긴장감 사운드)
+ */
+const SOUND_CONFIG: Record<Mp3SoundName, { path: string; volume: number }> = {
+  pokeball_throw: { path: '/sounds/pokeball_throw.mp3', volume: 0.5 },
+  pokeball_bounce: { path: '/sounds/pokeball_bounce.mp3', volume: 0.4 },
+  catch_wiggle: { path: '/sounds/catch_wiggle.mp3', volume: 0.4 },
+  catch_success: { path: '/sounds/catch_success.mp3', volume: 0.6 },
+  catch_fail: { path: '/sounds/catch_fail.mp3', volume: 0.5 },
+  pokemon_dodge: { path: '/sounds/pokemon_dodge.mp3', volume: 0.4 },
+  round_start: { path: '/sounds/round_start.mp3', volume: 0.5 },
+  round_end: { path: '/sounds/round_end.mp3', volume: 0.5 },
+  victory: { path: '/sounds/victory.mp3', volume: 0.6 },
+  defeat: { path: '/sounds/defeat.mp3', volume: 0.5 },
+};
+
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+/* ------------------------------------------------------------------ */
+/*  ChiptuneBGM — procedural 8-bit background music (unchanged)       */
+/* ------------------------------------------------------------------ */
 
 class ChiptuneBGM {
   private ctx: AudioContext | null = null;
@@ -174,6 +209,10 @@ class ChiptuneBGM {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  SoundManager — Howler.js MP3 playback + synthesized footsteps     */
+/* ------------------------------------------------------------------ */
+
 class SoundManager {
   private ctx: AudioContext | null = null;
 
@@ -185,9 +224,23 @@ class SoundManager {
 
   private readonly bgm = new ChiptuneBGM();
 
+  private readonly howls = new Map<Mp3SoundName, Howl>();
+
   constructor() {
     if (typeof window === 'undefined') {
       return;
+    }
+
+    // Preload all MP3 sound effects via Howler
+    for (const [name, config] of Object.entries(SOUND_CONFIG) as [Mp3SoundName, { path: string; volume: number }][]) {
+      this.howls.set(
+        name,
+        new Howl({
+          src: [config.path],
+          volume: config.volume,
+          preload: true,
+        }),
+      );
     }
 
     const unlockAudio = () => {
@@ -220,97 +273,32 @@ class SoundManager {
     return this.ctx;
   }
 
-  private scheduleTone(
-    ctx: AudioContext,
-    frequency: number,
-    duration: number,
-    type: OscillatorType,
-    volume: number,
-    offset = 0,
-  ) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const start = ctx.currentTime + offset;
-    const end = start + duration;
-
-    osc.type = type;
-    osc.frequency.setValueAtTime(frequency, start);
-
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.linearRampToValueAtTime(volume, start + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(end);
-  }
-
-  private scheduleSweep(
-    ctx: AudioContext,
-    startFreq: number,
-    endFreq: number,
-    duration: number,
-    volume: number,
-    type: OscillatorType,
-    offset = 0,
-  ) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const start = ctx.currentTime + offset;
-    const end = start + duration;
-
-    osc.type = type;
-    osc.frequency.setValueAtTime(startFreq, start);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(10, endFreq), end);
-
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.linearRampToValueAtTime(volume, start + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(end);
-  }
-
-  private scheduleNoise(
-    ctx: AudioContext,
-    duration: number,
-    volume: number,
-    filterType: BiquadFilterType,
-    cutoff: number,
-    offset = 0,
-  ) {
-    const sampleRate = ctx.sampleRate;
-    const frameCount = Math.floor(duration * sampleRate);
-    const buffer = ctx.createBuffer(1, frameCount, sampleRate);
-    const channelData = buffer.getChannelData(0);
-
-    for (let i = 0; i < frameCount; i += 1) {
-      channelData[i] = Math.random() * 2 - 1;
+  /**
+   * Footsteps fire at 150ms intervals — too frequent for MP3 playback.
+   * Kept as a lightweight Web Audio oscillator for performance.
+   */
+  private playFootstep() {
+    const ctx = this.ensureContext();
+    if (!ctx) {
+      return;
     }
 
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = filterType;
-
+    const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    const start = ctx.currentTime + offset;
-    const end = start + duration;
+    const start = ctx.currentTime;
+    const end = start + 0.04;
 
-    filter.frequency.setValueAtTime(cutoff, start);
-    gain.gain.setValueAtTime(volume, start);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, start);
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(0.03, start + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
-    source.connect(filter);
-    filter.connect(gain);
+    osc.connect(gain);
     gain.connect(ctx.destination);
-
-    source.start(start);
-    source.stop(end);
+    osc.start(start);
+    osc.stop(end);
   }
 
   play(name: SoundName) {
@@ -324,75 +312,15 @@ class SoundManager {
 
     this.lastPlayed[name] = now;
 
-    const ctx = this.ensureContext();
-    if (!ctx) {
+    // Footsteps stay synthesized for performance
+    if (name === 'footsteps') {
+      this.playFootstep();
       return;
     }
 
-    switch (name) {
-      case 'pokeball_throw':
-        this.scheduleNoise(ctx, 0.1, 0.035, 'highpass', 1200);
-        this.scheduleSweep(ctx, 600, 200, 0.15, 0.06, 'square');
-        break;
-      case 'pokeball_bounce':
-        this.scheduleTone(ctx, 180, 0.08, 'sine', 0.08);
-        break;
-      case 'catch_wiggle':
-        this.scheduleTone(ctx, 880, 0.04, 'square', 0.05, 0);
-        this.scheduleTone(ctx, 880, 0.04, 'square', 0.05, 0.25);
-        this.scheduleTone(ctx, 880, 0.04, 'square', 0.05, 0.5);
-        break;
-      case 'catch_success':
-        this.scheduleTone(ctx, 523, 0.1, 'square', 0.07, 0);
-        this.scheduleTone(ctx, 659, 0.1, 'square', 0.07, 0.12);
-        this.scheduleTone(ctx, 784, 0.12, 'square', 0.07, 0.24);
-        this.scheduleTone(ctx, 1047, 0.2, 'square', 0.07, 0.38);
-        break;
-      case 'catch_fail':
-        this.scheduleTone(ctx, 659, 0.1, 'square', 0.06, 0);
-        this.scheduleTone(ctx, 523, 0.12, 'square', 0.06, 0.12);
-        this.scheduleTone(ctx, 440, 0.15, 'square', 0.06, 0.26);
-        this.scheduleTone(ctx, 349, 0.2, 'square', 0.06, 0.43);
-        break;
-      case 'pokemon_dodge':
-        this.scheduleSweep(ctx, 300, 900, 0.08, 0.05, 'square');
-        break;
-      case 'footsteps':
-        this.scheduleTone(ctx, 90, 0.04, 'triangle', 0.03);
-        break;
-      case 'round_start':
-        this.scheduleTone(ctx, 392, 0.08, 'square', 0.08, 0);
-        this.scheduleTone(ctx, 494, 0.08, 'square', 0.08, 0.1);
-        this.scheduleTone(ctx, 587, 0.1, 'square', 0.08, 0.2);
-        this.scheduleTone(ctx, 784, 0.15, 'square', 0.08, 0.32);
-        this.scheduleTone(ctx, 587, 0.06, 'square', 0.08, 0.62);
-        this.scheduleTone(ctx, 784, 0.2, 'square', 0.08, 0.72);
-        break;
-      case 'round_end':
-        this.scheduleTone(ctx, 784, 0.1, 'square', 0.07, 0);
-        this.scheduleTone(ctx, 659, 0.1, 'square', 0.07, 0.12);
-        this.scheduleTone(ctx, 523, 0.12, 'square', 0.07, 0.24);
-        this.scheduleTone(ctx, 392, 0.25, 'triangle', 0.07, 0.38);
-        break;
-      case 'victory':
-        this.scheduleTone(ctx, 523, 0.08, 'square', 0.08, 0);
-        this.scheduleTone(ctx, 659, 0.08, 'square', 0.08, 0.1);
-        this.scheduleTone(ctx, 784, 0.08, 'square', 0.08, 0.2);
-        this.scheduleTone(ctx, 1047, 0.08, 'square', 0.08, 0.3);
-        this.scheduleTone(ctx, 659, 0.1, 'square', 0.08, 0.58);
-        this.scheduleTone(ctx, 784, 0.1, 'square', 0.08, 0.7);
-        this.scheduleTone(ctx, 1047, 0.1, 'square', 0.08, 0.82);
-        this.scheduleTone(ctx, 1318, 0.3, 'square', 0.08, 0.94);
-        break;
-      case 'defeat':
-        this.scheduleTone(ctx, 659, 0.12, 'square', 0.06, 0);
-        this.scheduleTone(ctx, 587, 0.12, 'square', 0.06, 0.14);
-        this.scheduleTone(ctx, 523, 0.12, 'square', 0.06, 0.28);
-        this.scheduleTone(ctx, 494, 0.12, 'square', 0.06, 0.42);
-        this.scheduleTone(ctx, 440, 0.3, 'triangle', 0.06, 0.56);
-        break;
-      default:
-        break;
+    const howl = this.howls.get(name);
+    if (howl) {
+      howl.play();
     }
   }
 
