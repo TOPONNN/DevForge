@@ -13,6 +13,22 @@ const MAX_RANGE = 50;
 const MAP_HALF_EXTENT = 50;
 const SPAWN_EDGE_BAND = 5;
 const SPAWN_HEIGHT = 0.5;
+const SANITY_MAX = 100;
+const SANITY_START = 100;
+const SANITY_RECOVERY_AFTER_PENALTY = 40;
+const SANITY_DRAIN_PER_SECOND = 2;
+const SANITY_BOT_THROW_PENALTY = 15;
+const SANITY_REAL_CATCH_REWARD = 25;
+const TRAINER_PENALTY_DURATION = 5;
+const HUNGER_MAX = 100;
+const HUNGER_START = 100;
+const HUNGER_CRY_RESET = 60;
+const HUNGER_DRAIN_PER_SECOND = 3;
+const HUNGER_WARNING_THRESHOLD = 30;
+const BERRY_RESTORE = 40;
+const BERRY_EAT_RADIUS = 2;
+const BERRY_MIN_SPAWN = 15;
+const BERRY_MAX_SPAWN = 20;
 
 const speciesStats = {
   Bulbasaur: { speed: 4.5, catchDifficulty: 0.5, size: 'medium', color: '#2A9D8F', modelScale: 1.0 },
@@ -118,6 +134,44 @@ function send(ws, type, data) {
   }
 }
 
+function sendToPlayer(playerId, type, data) {
+  const ws = clients.get(playerId);
+  if (ws) {
+    send(ws, type, data);
+  }
+}
+
+function clampStat(value, min = 0, max = SANITY_MAX) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function trainerPlayers(room) {
+  return [...room.players.values()].filter((player) => player.role === 'trainer' && !player.isCaught);
+}
+
+function emitSanityUpdate(trainer) {
+  sendToPlayer(trainer.id, 'sanity_update', { sanity: trainer.sanity });
+}
+
+function adjustTrainerSanity(trainer, delta) {
+  const prev = Number.isFinite(trainer.sanity) ? trainer.sanity : SANITY_START;
+  const next = clampStat(prev + delta, 0, SANITY_MAX);
+  if (next === prev) {
+    return;
+  }
+  trainer.sanity = next;
+  emitSanityUpdate(trainer);
+  if (next <= 0) {
+    sendToPlayer(trainer.id, 'trainer_penalty', { type: 'disoriented', duration: TRAINER_PENALTY_DURATION });
+    trainer.sanity = SANITY_RECOVERY_AFTER_PENALTY;
+    emitSanityUpdate(trainer);
+  }
+}
+
+function emitHungerUpdate(pokemon) {
+  sendToPlayer(pokemon.id, 'hunger_update', { hunger: pokemon.hunger });
+}
+
 function broadcast(room, type, data) {
   for (const player of room.players.values()) {
     const ws = clients.get(player.id);
@@ -195,6 +249,27 @@ function allPokemonCaught(room) {
 function setPhase(room, phase, timer) {
   room.phase = phase;
   room.timer = timer;
+  if (phase === 'hunting') {
+    room.berries = generateBerries();
+    for (const trainer of trainerPlayers(room)) {
+      if (!Number.isFinite(trainer.sanity)) {
+        trainer.sanity = SANITY_START;
+      }
+      trainer.sanity = clampStat(trainer.sanity, 0, SANITY_MAX);
+      emitSanityUpdate(trainer);
+    }
+    for (const player of room.players.values()) {
+      if (player.role !== 'pokemon' || player.isBot || player.isCaught) {
+        continue;
+      }
+      if (!Number.isFinite(player.hunger)) {
+        player.hunger = HUNGER_START;
+      }
+      player.hunger = clampStat(player.hunger, 0, HUNGER_MAX);
+      player.hungerWarningSent = player.hunger < HUNGER_WARNING_THRESHOLD;
+      emitHungerUpdate(player);
+    }
+  }
   broadcast(room, 'phase_change', { phase, timer });
   broadcastRoomList(room.channel);
 }
@@ -240,7 +315,14 @@ function startRound(room) {
     if (player.role === 'pokemon' && !player.species) {
       player.species = { name: 'Bulbasaur', ...speciesStats.Bulbasaur };
     }
+    if (player.role === 'trainer') {
+      player.sanity = SANITY_START;
+    } else if (player.role === 'pokemon' && !player.isBot) {
+      player.hunger = HUNGER_START;
+      player.hungerWarningSent = false;
+    }
   }
+  room.berries = [];
   setPhase(room, 'preparing', PREP_TIME);
   emitRoomState(room);
 }
@@ -328,6 +410,10 @@ function handleCatchAttempt(room, trainerId, throwData) {
     return;
   }
 
+  if (target.isBot) {
+    adjustTrainerSanity(trainer, -SANITY_BOT_THROW_PENALTY);
+  }
+
   const chance = calculateCatchChance(throwData, target);
   const success = Math.random() < chance;
   const shakeCount = 1 + Math.floor(Math.random() * 3);
@@ -335,6 +421,9 @@ function handleCatchAttempt(room, trainerId, throwData) {
     target.isCaught = true;
     target.isAlive = false;
     trainer.score += 1;
+    if (!target.isBot) {
+      adjustTrainerSanity(trainer, SANITY_REAL_CATCH_REWARD);
+    }
   }
 
   broadcast(room, 'catch_result', {
@@ -426,6 +515,7 @@ function handleAddBot(ws) {
 
   const speciesName = randomPokemonName();
   const botId = nextBotId(room);
+  const grazeDuration = 4 + Math.random() * 6;
   const bot = {
     id: botId,
     name: `봇 ${speciesName}`,
@@ -437,6 +527,16 @@ function handleAddBot(ws) {
     isCaught: false,
     score: 0,
     isBot: true,
+    roomCode: ws.roomCode,
+    personality: {
+      idleChance: 0.18 + Math.random() * 0.27,
+      wanderSpeed: 0.15 + Math.random() * 0.15,
+      herdiness: 0.2 + Math.random() * 0.65,
+      grrazeDuration: grazeDuration,
+      grazeDuration,
+      turnJitter: 0.01 + Math.random() * 0.03,
+      directionChange: 1.2 + Math.random() * 2.6,
+    },
     wanderDir: null,
     wanderUntil: 0,
   };
@@ -765,248 +865,258 @@ function generateCoverPositions() {
 
 const COVER_SPOTS = generateCoverPositions();
 
-// ──────── SMART BOT AI ────────
-const AI_PATROL = 'patrol';
-const AI_ALERT  = 'alert';
-const AI_FLEE   = 'flee';
-const AI_HIDE   = 'hide';
-
-const ALERT_RANGE_BASE = 30;
-const FLEE_RANGE_BASE  = 15;
-const SAFE_RANGE       = 40;
-const EDGE_BUFFER      = 6;
-const HIDE_ARRIVAL     = 3;
-
-function findBestCover(botPos, trainerPos) {
-  let best = null;
-  let bestScore = -Infinity;
-  for (const c of COVER_SPOTS) {
-    const dBot = Math.hypot(c.x - botPos[0], c.z - botPos[2]);
-    const dTrainer = Math.hypot(c.x - trainerPos[0], c.z - trainerPos[2]);
-    // Prefer cover that is close to bot but far from trainer
-    let score = dTrainer * 0.6 - dBot * 1.0;
-    // Bonus: cover on opposite side of trainer
-    const toTX = trainerPos[0] - botPos[0];
-    const toTZ = trainerPos[2] - botPos[2];
-    const toCX = c.x - botPos[0];
-    const toCZ = c.z - botPos[2];
-    const dot = toTX * toCX + toTZ * toCZ;
-    if (dot < 0) score += 6;
-    // Penalty: too close to map edge (avoid getting cornered)
-    if (Math.abs(c.x) > MAP_HALF_EXTENT - EDGE_BUFFER || Math.abs(c.z) > MAP_HALF_EXTENT - EDGE_BUFFER) {
-      score -= 8;
+function generateBerries() {
+  if (!COVER_SPOTS.length) {
+    return [];
+  }
+  const berries = [];
+  const used = new Set();
+  const targetCount = BERRY_MIN_SPAWN + Math.floor(Math.random() * (BERRY_MAX_SPAWN - BERRY_MIN_SPAWN + 1));
+  while (berries.length < targetCount && used.size < COVER_SPOTS.length) {
+    const index = Math.floor(Math.random() * COVER_SPOTS.length);
+    if (used.has(index)) {
+      continue;
     }
-    if (score > bestScore) { bestScore = score; best = c; }
+    used.add(index);
+    const spot = COVER_SPOTS[index];
+    berries.push({ position: [spot.x, SPAWN_HEIGHT, spot.z] });
   }
-  return best;
+  return berries;
 }
 
-function findNearestCover(pos) {
-  let best = null;
+// ──────── SIMPLE BOT AI (OH DEER STYLE) ────────
+const AI_WANDER = 'wander';
+const AI_IDLE = 'idle';
+const AI_GRAZE = 'graze';
+const AI_HERD = 'herd';
+const EDGE_BUFFER = 5;
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function nearestPokemonBot(bot) {
+  const room = bot.roomCode ? rooms.get(bot.roomCode) : null;
+  if (!room) {
+    return null;
+  }
+  let nearest = null;
   let bestDist = Infinity;
-  for (const c of COVER_SPOTS) {
-    const d = Math.hypot(c.x - pos[0], c.z - pos[2]);
-    if (d < bestDist) { bestDist = d; best = c; }
+  for (const other of room.players.values()) {
+    if (!other.isBot || other.id === bot.id || other.role !== 'pokemon' || other.isCaught) {
+      continue;
+    }
+    const dx = other.position[0] - bot.position[0];
+    const dz = other.position[2] - bot.position[2];
+    const dist = Math.hypot(dx, dz);
+    if (dist < bestDist) {
+      bestDist = dist;
+      nearest = other;
+    }
   }
-  return { cover: best, dist: bestDist };
+  return nearest ? { bot: nearest, dist: bestDist } : null;
 }
 
-function steerAwayFromEdge(px, pz, mx, mz) {
-  const limit = MAP_HALF_EXTENT - EDGE_BUFFER;
-  let fx = mx;
-  let fz = mz;
-  if (px + mx > limit)  fx = -Math.abs(mx) * 0.8;
-  if (px + mx < -limit) fx =  Math.abs(mx) * 0.8;
-  if (pz + mz > limit)  fz = -Math.abs(mz) * 0.8;
-  if (pz + mz < -limit) fz =  Math.abs(mz) * 0.8;
-  return [fx, fz];
+function pickWanderTarget(position) {
+  const span = MAP_HALF_EXTENT - SPAWN_EDGE_BAND - 2;
+  return {
+    x: clamp(position[0] + randomBetween(-14, 14), -span, span),
+    z: clamp(position[2] + randomBetween(-14, 14), -span, span),
+  };
+}
+
+function pickGrazeSpot(position) {
+  if (!COVER_SPOTS.length) {
+    return pickWanderTarget(position);
+  }
+  const start = Math.floor(Math.random() * COVER_SPOTS.length);
+  for (let i = 0; i < Math.min(8, COVER_SPOTS.length); i++) {
+    const c = COVER_SPOTS[(start + i) % COVER_SPOTS.length];
+    const d = Math.hypot(c.x - position[0], c.z - position[2]);
+    if (d >= 4 && d <= 22) {
+      return { x: c.x, z: c.z };
+    }
+  }
+  const fallback = COVER_SPOTS[start];
+  return { x: fallback.x, z: fallback.z };
 }
 
 function tickBotAI(bot, trainers, dt) {
-  const speed = bot.species?.speed || speciesStats.Bulbasaur.speed;
-  const size = bot.species?.size || 'medium';
+  void trainers;
   const now = Date.now();
+  const speciesSpeed = bot.species?.speed || speciesStats.Bulbasaur.speed;
+  const personality = bot.personality || {
+    idleChance: 0.3,
+    wanderSpeed: 0.22,
+    herdiness: 0.5,
+    grrazeDuration: 6,
+    grazeDuration: 6,
+    turnJitter: 0.02,
+    directionChange: 2,
+  };
 
-  // Init AI state on first tick
   if (!bot.ai) {
+    const angle = Math.random() * Math.PI * 2;
     bot.ai = {
-      state: AI_PATROL,
-      target: null,
-      zigzag: 0,
-      changed: now,
-      patrolIdx: Math.floor(Math.random() * COVER_SPOTS.length),
+      state: AI_WANDER,
+      stateUntil: now + randomBetween(3000, 7000),
+      target: pickWanderTarget(bot.position),
+      headingX: Math.cos(angle),
+      headingZ: Math.sin(angle),
+      vx: 0,
+      vz: 0,
+      nextTurnAt: now + randomBetween(800, 2400),
+      gaitPhase: Math.random() * Math.PI * 2,
+      herdMateId: null,
     };
   }
 
-  // --- Find nearest trainer ---
-  let nearest = null;
-  let nearDist = Infinity;
-  for (const t of trainers) {
-    const d = distance(bot.position, t.position);
-    if (d < nearDist) { nearDist = d; nearest = t; }
+  const ai = bot.ai;
+
+  function setState(nextState) {
+    ai.state = nextState;
+    ai.nextTurnAt = now + randomBetween(700, 2300) / Math.max(0.6, personality.directionChange);
+    if (nextState === AI_IDLE) {
+      ai.stateUntil = now + randomBetween(2000, 8000);
+      ai.target = null;
+      ai.herdMateId = null;
+    } else if (nextState === AI_GRAZE) {
+      ai.stateUntil = now + randomBetween(personality.grrazeDuration * 700, personality.grrazeDuration * 1300);
+      ai.target = pickGrazeSpot(bot.position);
+      ai.herdMateId = null;
+    } else if (nextState === AI_HERD) {
+      ai.stateUntil = now + randomBetween(2800, 7000);
+      ai.target = null;
+    } else {
+      ai.stateUntil = now + randomBetween(3500, 9000);
+      ai.target = pickWanderTarget(bot.position);
+      ai.herdMateId = null;
+    }
   }
 
-  // --- Species-specific modifiers ---
-  // Small/fast → detect earlier, zigzag more
-  // Large/slow → detect earlier, prefer hiding
-  const alertRange = size === 'small' ? ALERT_RANGE_BASE * 1.2
-    : size === 'large' ? ALERT_RANGE_BASE * 1.1 : ALERT_RANGE_BASE;
-  const fleeRange = size === 'small' ? FLEE_RANGE_BASE * 1.15
-    : size === 'large' ? FLEE_RANGE_BASE * 1.0 : FLEE_RANGE_BASE;
+  if (now >= ai.stateUntil) {
+    const nearby = nearestPokemonBot(bot);
+    const herdChance = nearby && nearby.dist < 24 ? personality.herdiness * 0.65 : personality.herdiness * 0.35;
+    const grazeChance = 0.2 + personality.idleChance * 0.2;
+    const roll = Math.random();
+    if (roll < personality.idleChance) {
+      setState(AI_IDLE);
+    } else if (roll < personality.idleChance + grazeChance) {
+      setState(AI_GRAZE);
+    } else if (roll < personality.idleChance + grazeChance + herdChance) {
+      setState(AI_HERD);
+      ai.herdMateId = nearby?.bot?.id || null;
+    } else {
+      setState(AI_WANDER);
+    }
+  }
 
-  // --- State transitions ---
-  const prev = bot.ai.state;
+  let dirX = ai.headingX;
+  let dirZ = ai.headingZ;
+  let modeSpeed = personality.wanderSpeed;
 
-  if (nearest) {
-    if (nearDist < fleeRange) {
-      bot.ai.state = AI_FLEE;
-    } else if (nearDist < alertRange) {
-      // Stay hidden at least 5s before re-evaluating
-      if (prev === AI_HIDE && now - bot.ai.changed < 5000) {
-        // keep hiding
+  if (ai.state === AI_IDLE) {
+    modeSpeed = 0;
+  } else if (ai.state === AI_GRAZE) {
+    modeSpeed = personality.wanderSpeed * 0.38;
+    if (ai.target) {
+      const dx = ai.target.x - bot.position[0];
+      const dz = ai.target.z - bot.position[2];
+      const d = Math.hypot(dx, dz);
+      if (d > 1.5) {
+        dirX = dx / d;
+        dirZ = dz / d;
       } else {
-        bot.ai.state = AI_ALERT;
+        modeSpeed *= 0.08;
       }
-    } else if (nearDist > SAFE_RANGE) {
-      if (prev === AI_FLEE || prev === AI_ALERT || prev === AI_HIDE) {
-        bot.ai.state = AI_PATROL;
+    }
+  } else if (ai.state === AI_HERD) {
+    modeSpeed = personality.wanderSpeed * 0.82;
+    const mateInfo = nearestPokemonBot(bot);
+    if (mateInfo && mateInfo.dist < 34) {
+      const mate = mateInfo.bot;
+      const dx = mate.position[0] - bot.position[0];
+      const dz = mate.position[2] - bot.position[2];
+      const d = Math.hypot(dx, dz) || 1;
+      const personalSpace = 2.5;
+      if (d > personalSpace) {
+        dirX = dx / d;
+        dirZ = dz / d;
+      } else {
+        dirX = -dz / d;
+        dirZ = dx / d;
       }
+    } else {
+      setState(AI_WANDER);
     }
   } else {
-    bot.ai.state = AI_PATROL;
+    if (!ai.target || Math.hypot(ai.target.x - bot.position[0], ai.target.z - bot.position[2]) < 2) {
+      ai.target = pickWanderTarget(bot.position);
+    }
+    const dx = ai.target.x - bot.position[0];
+    const dz = ai.target.z - bot.position[2];
+    const d = Math.hypot(dx, dz) || 1;
+    dirX = dx / d;
+    dirZ = dz / d;
   }
 
-  if (prev !== bot.ai.state) {
-    bot.ai.changed = now;
-    bot.ai.target = null;
+  if (now >= ai.nextTurnAt) {
+    ai.nextTurnAt = now + randomBetween(700, 2300) / Math.max(0.6, personality.directionChange);
+    const turn = randomBetween(-0.35, 0.35);
+    const cos = Math.cos(turn);
+    const sin = Math.sin(turn);
+    const tx = dirX * cos - dirZ * sin;
+    const tz = dirX * sin + dirZ * cos;
+    dirX = tx;
+    dirZ = tz;
   }
 
-  // --- Movement per state ---
-  let mx = 0;
-  let mz = 0;
+  dirX += randomBetween(-1, 1) * personality.turnJitter;
+  dirZ += randomBetween(-1, 1) * personality.turnJitter;
 
-  switch (bot.ai.state) {
-    case AI_PATROL: {
-      // Walk between random cover spots (looks natural)
-      const dest = COVER_SPOTS[bot.ai.patrolIdx % COVER_SPOTS.length];
-      if (!dest) break;
-      const dx = dest.x - bot.position[0];
-      const dz = dest.z - bot.position[2];
-      const dl = Math.sqrt(dx * dx + dz * dz) || 1;
-      if (dl < 2.5) {
-        // Pick next patrol point (nearby, not same spot)
-        bot.ai.patrolIdx = Math.floor(Math.random() * COVER_SPOTS.length);
-      } else {
-        const step = speed * 0.22 * dt;
-        mx = (dx / dl) * step;
-        mz = (dz / dl) * step;
-        // Small random deviation for natural look
-        mx += (Math.random() - 0.5) * step * 0.2;
-        mz += (Math.random() - 0.5) * step * 0.2;
-      }
-      break;
-    }
+  const dirLen = Math.hypot(dirX, dirZ) || 1;
+  dirX /= dirLen;
+  dirZ /= dirLen;
 
-    case AI_ALERT: {
-      // Move toward best cover between bot and trainer
-      if (!bot.ai.target && nearest) {
-        bot.ai.target = findBestCover(bot.position, nearest.position);
-      }
-      if (bot.ai.target) {
-        const dx = bot.ai.target.x - bot.position[0];
-        const dz = bot.ai.target.z - bot.position[2];
-        const dl = Math.sqrt(dx * dx + dz * dz) || 1;
-        if (dl < HIDE_ARRIVAL) {
-          bot.ai.state = AI_HIDE;
-          bot.ai.changed = now;
-        } else {
-          const step = speed * 0.55 * dt;
-          mx = (dx / dl) * step;
-          mz = (dz / dl) * step;
-        }
-      }
-      break;
-    }
-
-    case AI_FLEE: {
-      // Evasive retreat with zigzag
-      if (nearest) {
-        const dx = bot.position[0] - nearest.position[0];
-        const dz = bot.position[2] - nearest.position[2];
-        const dl = Math.sqrt(dx * dx + dz * dz) || 1;
-
-        // Zigzag: small = aggressive zigzag, large = mild
-        const zigzagAmp = size === 'small' ? 0.7 : size === 'large' ? 0.3 : 0.5;
-        const zigzagFreq = size === 'small' ? 4.0 : size === 'large' ? 2.0 : 3.0;
-        bot.ai.zigzag += dt * zigzagFreq;
-        const zig = Math.sin(bot.ai.zigzag) * zigzagAmp;
-
-        // Perpendicular vector for zigzag
-        const perpX = -dz / dl;
-        const perpZ = dx / dl;
-
-        const step = speed * 0.7 * dt;
-        mx = ((dx / dl) + perpX * zig) * step;
-        mz = ((dz / dl) + perpZ * zig) * step;
-
-        // Steer away from edges
-        const steered = steerAwayFromEdge(bot.position[0], bot.position[2], mx, mz);
-        mx = steered[0];
-        mz = steered[1];
-
-        // Opportunistic cover: if a cover spot is nearby and roughly
-        // in our flee direction, blend toward it
-        const near = findNearestCover(bot.position);
-        if (near.cover && near.dist < 10) {
-          const tcx = near.cover.x - bot.position[0];
-          const tcz = near.cover.z - bot.position[2];
-          const tcl = Math.sqrt(tcx * tcx + tcz * tcz) || 1;
-          // Only blend if cover is roughly away from trainer
-          const coverDot = (dx / dl) * (tcx / tcl) + (dz / dl) * (tcz / tcl);
-          if (coverDot > 0.1) {
-            mx = mx * 0.45 + (tcx / tcl) * step * 0.55;
-            mz = mz * 0.45 + (tcz / tcl) * step * 0.55;
-          }
-        }
-      }
-      break;
-    }
-
-    case AI_HIDE: {
-      // Stay near cover position, creep to stay behind it
-      const cov = bot.ai.target;
-      if (cov && nearest) {
-        // Position ourselves so cover is between us and trainer
-        const ttx = nearest.position[0] - cov.x;
-        const ttz = nearest.position[2] - cov.z;
-        const ttl = Math.sqrt(ttx * ttx + ttz * ttz) || 1;
-        // Ideal hide position: opposite side of cover from trainer
-        const idealX = cov.x - (ttx / ttl) * (cov.r || 2);
-        const idealZ = cov.z - (ttz / ttl) * (cov.r || 2);
-        const toIdealX = idealX - bot.position[0];
-        const toIdealZ = idealZ - bot.position[2];
-        const idl = Math.sqrt(toIdealX * toIdealX + toIdealZ * toIdealZ) || 1;
-        if (idl > 0.8) {
-          const step = speed * 0.18 * dt;
-          mx = (toIdealX / idl) * step;
-          mz = (toIdealZ / idl) * step;
-        }
-      } else if (cov) {
-        // No trainer visible, just stay near cover
-        const dx = cov.x - bot.position[0];
-        const dz = cov.z - bot.position[2];
-        const dl = Math.sqrt(dx * dx + dz * dz);
-        if (dl > 1.5) {
-          const step = speed * 0.12 * dt;
-          mx = (dx / dl) * step;
-          mz = (dz / dl) * step;
-        }
-      }
-      break;
-    }
+  const edgeLimit = MAP_HALF_EXTENT - EDGE_BUFFER;
+  const px = bot.position[0];
+  const pz = bot.position[2];
+  if (Math.abs(px) > edgeLimit || Math.abs(pz) > edgeLimit) {
+    const pullX = -px;
+    const pullZ = -pz;
+    const pullLen = Math.hypot(pullX, pullZ) || 1;
+    dirX = dirX * 0.35 + (pullX / pullLen) * 0.65;
+    dirZ = dirZ * 0.35 + (pullZ / pullLen) * 0.65;
   }
 
-  return { mx, mz };
+  ai.gaitPhase += dt * randomBetween(0.6, 1.3);
+  const gait = 0.92 + Math.sin(ai.gaitPhase) * 0.08;
+  const desiredStep = speciesSpeed * modeSpeed * gait * dt;
+  const desiredMx = dirX * desiredStep;
+  const desiredMz = dirZ * desiredStep;
+
+  const smoothing = ai.state === AI_IDLE ? 0.12 : 0.22;
+  ai.vx += (desiredMx - ai.vx) * smoothing;
+  ai.vz += (desiredMz - ai.vz) * smoothing;
+
+  const maxStep = speciesSpeed * 0.32 * dt;
+  const stepLen = Math.hypot(ai.vx, ai.vz);
+  if (stepLen > maxStep) {
+    ai.vx = (ai.vx / stepLen) * maxStep;
+    ai.vz = (ai.vz / stepLen) * maxStep;
+  }
+
+  ai.headingX = ai.vx;
+  ai.headingZ = ai.vz;
+  const headingLen = Math.hypot(ai.headingX, ai.headingZ) || 1;
+  ai.headingX /= headingLen;
+  ai.headingZ /= headingLen;
+
+  return { mx: ai.vx, mz: ai.vz };
 }
 
 // Bot tick: 100ms interval for smooth movement
@@ -1033,8 +1143,79 @@ setInterval(() => {
         rotation: bot.rotation,
       });
     }
+
+    if (!Array.isArray(room.berries) || room.berries.length === 0) {
+      continue;
+    }
+
+    const pokemonPlayers = [...room.players.values()].filter((p) => p.role === 'pokemon' && !p.isBot && !p.isCaught);
+    for (const pokemon of pokemonPlayers) {
+      let berryIndex = -1;
+      for (let i = 0; i < room.berries.length; i++) {
+        if (distance(pokemon.position, room.berries[i].position) <= BERRY_EAT_RADIUS) {
+          berryIndex = i;
+          break;
+        }
+      }
+
+      if (berryIndex < 0) {
+        continue;
+      }
+
+      const [berry] = room.berries.splice(berryIndex, 1);
+      const prevHunger = Number.isFinite(pokemon.hunger) ? pokemon.hunger : HUNGER_START;
+      const nextHunger = clampStat(prevHunger + BERRY_RESTORE, 0, HUNGER_MAX);
+      pokemon.hunger = nextHunger;
+      pokemon.hungerWarningSent = nextHunger < HUNGER_WARNING_THRESHOLD;
+      if (nextHunger !== prevHunger) {
+        emitHungerUpdate(pokemon);
+      }
+      for (const trainer of trainerPlayers(room)) {
+        sendToPlayer(trainer.id, 'berry_eaten', { position: berry.position });
+      }
+    }
   }
 }, 100);
+
+setInterval(() => {
+  for (const room of rooms.values()) {
+    if (room.phase !== 'hunting') {
+      continue;
+    }
+
+    for (const trainer of trainerPlayers(room)) {
+      adjustTrainerSanity(trainer, -SANITY_DRAIN_PER_SECOND);
+    }
+
+    const pokemonPlayers = [...room.players.values()].filter((p) => p.role === 'pokemon' && !p.isBot && !p.isCaught);
+    for (const pokemon of pokemonPlayers) {
+      const prevHunger = Number.isFinite(pokemon.hunger) ? pokemon.hunger : HUNGER_START;
+      let nextHunger = clampStat(prevHunger - HUNGER_DRAIN_PER_SECOND, 0, HUNGER_MAX);
+      let cried = false;
+      if (nextHunger <= 0) {
+        broadcast(room, 'pokemon_cry', { playerId: pokemon.id, position: pokemon.position });
+        nextHunger = HUNGER_CRY_RESET;
+        cried = true;
+      }
+      pokemon.hunger = nextHunger;
+
+      if (nextHunger !== prevHunger || cried) {
+        emitHungerUpdate(pokemon);
+      }
+
+      if (nextHunger < HUNGER_WARNING_THRESHOLD && !pokemon.hungerWarningSent) {
+        for (const trainer of trainerPlayers(room)) {
+          sendToPlayer(trainer.id, 'hunger_warning', { playerId: pokemon.id, hunger: nextHunger });
+        }
+        pokemon.hungerWarningSent = true;
+      }
+
+      if (nextHunger >= HUNGER_WARNING_THRESHOLD) {
+        pokemon.hungerWarningSent = false;
+      }
+    }
+  }
+}, 1000);
 
 setInterval(() => {
   for (const room of rooms.values()) {

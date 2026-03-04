@@ -17,6 +17,8 @@ const TRAINER_WALK_SPEED = 5;
 const TRAINER_SPRINT_SPEED = 7.8;
 const TRAINER_JUMP_IMPULSE = 5;
 const EYE_HEIGHT = 1.6;
+const POKEMON_ACCELERATION = 10;
+const POKEMON_MOVING_SPEED_THRESHOLD = 0.08;
 
 export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
@@ -38,12 +40,18 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
 
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
+  const yawTargetRef = useRef(0);
+  const pitchTargetRef = useRef(0);
   const jumpHeldRef = useRef(false);
   const dodgeHeldRef = useRef(false);
   const groundedRef = useRef(false);
   const footstepTimerRef = useRef(0);
   const pokemonMovingRef = useRef(false);
+  const lookEulerRef = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
+  const lookQuaternionRef = useRef(new THREE.Quaternion());
+  const pokemonVelocityRef = useRef(new THREE.Vector3());
   const moveDirection = useMemo(() => new THREE.Vector3(), []);
+  const targetVelocity = useMemo(() => new THREE.Vector3(), []);
   const cameraTargetPosition = useMemo(() => new THREE.Vector3(), []);
   const cameraLookAt = useMemo(() => new THREE.Vector3(), []);
 
@@ -52,9 +60,9 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       if (!pointerLocked) {
         return;
       }
-      yawRef.current -= event.movementX * 0.002;
-      pitchRef.current -= event.movementY * 0.002;
-      pitchRef.current = THREE.MathUtils.clamp(pitchRef.current, -1.35, 1.35);
+      yawTargetRef.current -= event.movementX * 0.002;
+      pitchTargetRef.current -= event.movementY * 0.002;
+      pitchTargetRef.current = THREE.MathUtils.clamp(pitchTargetRef.current, -1.35, 1.35);
     };
     window.addEventListener('mousemove', onMouseMove);
     return () => window.removeEventListener('mousemove', onMouseMove);
@@ -78,6 +86,10 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     );
     groundedRef.current = world.castRay(ray, 1.1, true, undefined, undefined, undefined, body) !== null;
 
+    const cameraSmoothing = Math.min(1, 1 - Math.pow(0.0001, delta));
+    yawRef.current = THREE.MathUtils.lerp(yawRef.current, yawTargetRef.current, cameraSmoothing);
+    pitchRef.current = THREE.MathUtils.lerp(pitchRef.current, pitchTargetRef.current, cameraSmoothing);
+
     const forwardInput = (keys.backward ? 1 : 0) - (keys.forward ? 1 : 0);
     const strafeInput = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
 
@@ -97,23 +109,32 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
         },
         true,
       );
+      pokemonVelocityRef.current.set(currentVel.x, 0, currentVel.z);
       if (keys.jump && !jumpHeldRef.current && groundedRef.current && pointerLocked) {
         body.applyImpulse({ x: 0, y: TRAINER_JUMP_IMPULSE, z: 0 }, true);
       }
       jumpHeldRef.current = keys.jump;
 
-      const lookQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitchRef.current, yawRef.current, 0, 'YXZ'));
-      camera.quaternion.slerp(lookQuaternion, Math.min(1, delta * 22));
+      lookEulerRef.current.set(pitchRef.current, yawRef.current, 0, 'YXZ');
+      lookQuaternionRef.current.setFromEuler(lookEulerRef.current);
+      camera.quaternion.slerp(lookQuaternionRef.current, cameraSmoothing);
       cameraTargetPosition.set(translation.x, translation.y + EYE_HEIGHT, translation.z);
-      camera.position.lerp(cameraTargetPosition, Math.min(1, delta * 18));
+      camera.position.lerp(cameraTargetPosition, cameraSmoothing);
     } else {
       const speciesSpeed = selectedSpecies?.speed ?? 4.5;
       const boosted = escaping ? speciesSpeed * 1.55 : speciesSpeed;
+      const currentVel = body.linvel();
+      targetVelocity.set(
+        pointerLocked && !isCaught ? moveDirection.x * boosted : 0,
+        0,
+        pointerLocked && !isCaught ? moveDirection.z * boosted : 0,
+      );
+      pokemonVelocityRef.current.lerp(targetVelocity, Math.min(1, POKEMON_ACCELERATION * delta));
       body.setLinvel(
         {
-          x: pointerLocked && !isCaught ? moveDirection.x * boosted : 0,
-          y: body.linvel().y,
-          z: pointerLocked && !isCaught ? moveDirection.z * boosted : 0,
+          x: pokemonVelocityRef.current.x,
+          y: currentVel.y,
+          z: pokemonVelocityRef.current.z,
         },
         true,
       );
@@ -135,7 +156,7 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
         cameraLookAt.y + height + Math.sin(pitchRef.current) * 0.6,
         cameraLookAt.z + Math.cos(yawRef.current) * dist,
       );
-      camera.position.lerp(cameraTargetPosition, Math.min(1, delta * 8));
+      camera.position.lerp(cameraTargetPosition, cameraSmoothing);
       camera.lookAt(cameraLookAt);
     }
 
@@ -152,7 +173,9 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     }
 
     // Update pokemonMoving state for animation (only setState when changed to avoid unnecessary re-renders)
-    const movingNow = moveDirection.lengthSq() > 0 && pointerLocked && !isCaught;
+    const horizontalSpeedSq = pokemonVelocityRef.current.x ** 2 + pokemonVelocityRef.current.z ** 2;
+    const movingNow =
+      role === 'pokemon' && pointerLocked && !isCaught && horizontalSpeedSq > POKEMON_MOVING_SPEED_THRESHOLD ** 2;
     if (movingNow !== pokemonMovingRef.current) {
       pokemonMovingRef.current = movingNow;
       setPokemonMoving(movingNow);

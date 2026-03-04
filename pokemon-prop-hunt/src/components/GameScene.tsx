@@ -42,13 +42,23 @@ function CameraSetup() {
 function useIsMoving(position: [number, number, number]): boolean {
   const prevPosRef = useRef<[number, number, number]>([...position]);
   const isMovingRef = useRef(false);
+  const stillFramesRef = useRef(0);
 
   const dx = position[0] - prevPosRef.current[0];
   const dz = position[2] - prevPosRef.current[2];
   const distSq = dx * dx + dz * dz;
 
-  // Movement threshold: if position changed more than 0.001 units squared
-  isMovingRef.current = distSq > 0.001;
+  const movingNow = distSq > 0.01 * 0.01;
+  if (movingNow) {
+    stillFramesRef.current = 0;
+    isMovingRef.current = true;
+  } else if (isMovingRef.current) {
+    stillFramesRef.current += 1;
+    if (stillFramesRef.current >= 3) {
+      isMovingRef.current = false;
+    }
+  }
+
   prevPosRef.current = [...position];
 
   return isMovingRef.current;
@@ -99,6 +109,7 @@ function RemotePlayers() {
 export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
   const showFps = false;
   const phase = useGameStore((state) => state.phase);
+  const isDisoriented = useGameStore((state) => state.isDisoriented);
   const sunRef = useRef<THREE.Mesh>(null!);
 
   if (phase === 'lobby' || phase === 'selecting') {
@@ -106,36 +117,38 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
   }
 
   return (
-    <Canvas
-      shadows
-      dpr={[1, 2]}
-      frameloop="always"
-      camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
-    >
-      <color attach="background" args={['#B5D8F0']} />
-      <CameraSetup />
+    <div className={`game-canvas-shell ${isDisoriented ? 'disoriented' : ''}`}>
+      <Canvas
+        shadows
+        dpr={[1, 2]}
+        frameloop="always"
+        camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+      >
+        <color attach="background" args={['#B5D8F0']} />
+        <CameraSetup />
 
-      <Physics gravity={[0, -20, 0]} interpolate>
-        <GameMap />
-        <Player keysRef={keysRef} pointerLocked={pointerLocked} />
-        <RemotePlayers />
-        <PokeballSystem pointerLocked={pointerLocked} />
-      </Physics>
+        <Physics gravity={[0, -20, 0]} interpolate>
+          <GameMap />
+          <Player keysRef={keysRef} pointerLocked={pointerLocked} />
+          <RemotePlayers />
+          <PokeballSystem pointerLocked={pointerLocked} />
+        </Physics>
 
-      <mesh ref={sunRef} position={[40, 50, 25]}>
-        <sphereGeometry args={[8, 32, 32]} />
-        <meshBasicMaterial color="#FFD080" />
-      </mesh>
+        <mesh ref={sunRef} position={[40, 50, 25]}>
+          <sphereGeometry args={[8, 32, 32]} />
+          <meshBasicMaterial color="#FFD080" />
+        </mesh>
 
-      <CatchAnimation />
-      <EffectComposer>
-        <GodRays sun={sunRef} samples={60} density={0.96} decay={0.9} weight={0.4} exposure={0.6} clampMax={1} />
-        <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
-      </EffectComposer>
-      <AdaptiveDpr pixelated />
-      <AdaptiveEvents />
-      {showFps ? <Stats className="fps-counter" showPanel={0} /> : null}
-    </Canvas>
+        <CatchAnimation />
+        <EffectComposer>
+          <GodRays sun={sunRef} samples={60} density={0.96} decay={0.9} weight={0.4} exposure={0.6} clampMax={1} />
+          <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
+        </EffectComposer>
+        <AdaptiveDpr pixelated />
+        <AdaptiveEvents />
+        {showFps ? <Stats className="fps-counter" showPanel={0} /> : null}
+      </Canvas>
+    </div>
   );
 }

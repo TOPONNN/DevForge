@@ -45,6 +45,19 @@ function App() {
   }, [phase, tickTimer]);
 
   useEffect(() => {
+    if (phase !== 'hunting') {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      const state = useGameStore.getState();
+      if (state.isDisoriented) {
+        state.tickDisoriented(1);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [phase]);
+
+  useEffect(() => {
     if (phase === 'preparing' && timeLeft <= 0) {
       setPhase('hunting');
       setTimeLeft(huntTime);

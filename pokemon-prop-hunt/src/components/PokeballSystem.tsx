@@ -1,12 +1,11 @@
-import { Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 import { soundManager } from '../systems/sound';
-import type { ActivePokeball, ThrowData, Vector3Tuple } from '../types/game';
+import type { ActivePokeball, ThrowData } from '../types/game';
 
 function ProceduralPokeballMesh() {
   return (
@@ -100,30 +99,6 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
 
   const chargingSinceRef = useRef(0);
   const attemptedBallsRef = useRef<Set<string>>(new Set());
-  const arcPoints = useMemo(() => {
-    if (!isCharging || role !== 'trainer' || !pointerLocked) {
-      return [];
-    }
-    const origin = camera.position.clone();
-    const direction = new THREE.Vector3();
-    camera.getWorldDirection(direction);
-    const upBoost = 0.25 + throwPower * 0.35;
-    direction.y += upBoost;
-    direction.normalize();
-
-    const speed = 7 + throwPower * 18;
-    const points: Vector3Tuple[] = [];
-    for (let i = 0; i < 28; i += 1) {
-      const t = i * 0.08;
-      points.push([
-        origin.x + direction.x * speed * t,
-        origin.y + direction.y * speed * t - 4.9 * t * t,
-        origin.z + direction.z * speed * t,
-      ]);
-    }
-    return points;
-  }, [camera, isCharging, pointerLocked, role, throwPower]);
-
   useEffect(() => {
     const onMouseDown = (event: MouseEvent) => {
       if (event.button !== 0 || !pointerLocked || role !== 'trainer' || phase !== 'hunting') {
@@ -139,7 +114,7 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
       }
       const direction = new THREE.Vector3();
       camera.getWorldDirection(direction);
-      direction.y += 0.25 + throwPower * 0.35;
+      direction.y += 0.05;
       direction.normalize();
 
       const throwData: ThrowData = {
@@ -206,7 +181,6 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
 
   return (
     <>
-      {arcPoints.length > 1 ? <Line points={arcPoints} color="#FFD60A" lineWidth={1.5} transparent opacity={0.8} /> : null}
       {activePokeballs.map((ball) => (
         <PokeballProjectile key={ball.id} ball={ball} />
       ))}

@@ -131,4 +131,10 @@ export type NetworkMessage =
   | { type: 'add_bot'; data: Record<string, never> }
   | { type: 'remove_bot'; data: { botId: string } }
   | { type: 'bot_added'; data: { botId: string; botName: string } }
-  | { type: 'bot_removed'; data: { botId: string } };
+  | { type: 'bot_removed'; data: { botId: string } }
+  | { type: 'sanity_update'; data: { sanity: number } }
+  | { type: 'hunger_update'; data: { hunger: number } }
+  | { type: 'trainer_penalty'; data: { type: string; duration: number } }
+  | { type: 'pokemon_cry'; data: { playerId: string; position: Vector3Tuple } }
+  | { type: 'berry_eaten'; data: { position: Vector3Tuple } }
+  | { type: 'hunger_warning'; data: { playerId: string; hunger: number } };

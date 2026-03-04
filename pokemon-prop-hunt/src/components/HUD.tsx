@@ -31,6 +31,9 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
   const selectedSpecies = useGameStore((state) => state.selectedSpecies);
   const dodgeCooldown = useGameStore((state) => state.dodgeCooldown);
   const isCaught = useGameStore((state) => state.isCaught);
+  const trainerSanity = useGameStore((state) => state.trainerSanity);
+  const pokemonHunger = useGameStore((state) => state.pokemonHunger);
+  const isDisoriented = useGameStore((state) => state.isDisoriented);
   const catchAttemptResult = useGameStore((state) => state.catchAttemptResult);
   const clearCatchAttemptResult = useGameStore((state) => state.clearCatchAttemptResult);
 
@@ -79,12 +82,31 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
   const specKrName = selectedSpecies ? (KOREAN_NAMES[selectedSpecies.name] ?? selectedSpecies.name) : '포켓몬';
   const dodgeReady = dodgeCooldown <= 0;
   const dodgePct = dodgeReady ? 100 : Math.max(0, (1 - dodgeCooldown / 2) * 100);
+  const sanityLow = trainerSanity < 30;
+  const hungerLow = pokemonHunger < 30;
+  const hungerCritical = pokemonHunger < 10;
 
   return (
     <div className={`hud-layer ${pointerLocked ? 'active' : ''}`}>
       <div className={`hud-top-center ${timerLow ? 'timer-critical' : ''}`}>
-        <span className="hud-timer-icon">⏱</span>
-        <span className="hud-timer-text">{formatTime(timeLeft)}</span>
+        <div className="hud-timer-row">
+          <span className="hud-timer-icon">⏱</span>
+          <span className="hud-timer-text">{formatTime(timeLeft)}</span>
+        </div>
+        {role === 'trainer' ? (
+          <div className="penalty-meter-section">
+            <div className="penalty-meter-label">
+              <span>정신력</span>
+              <span>{Math.round(trainerSanity)}%</span>
+            </div>
+            <div className="penalty-meter-track">
+              <div
+                className={`penalty-meter-fill sanity ${sanityLow ? 'critical' : ''}`}
+                style={{ width: `${Math.max(0, Math.min(100, trainerSanity))}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {role === 'trainer' ? (
@@ -140,6 +162,24 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
               </div>
               <span className={`dodge-status ${dodgeReady ? 'ready' : ''}`}>{dodgeReady ? '준비' : `${dodgeCooldown.toFixed(1)}초`}</span>
             </div>
+
+            <div className="penalty-meter-section hunger-section">
+              <div className="penalty-meter-label">
+                <span>배고픔</span>
+                <span>{Math.round(pokemonHunger)}%</span>
+              </div>
+              <div className="penalty-meter-track">
+                <div
+                  className={`penalty-meter-fill hunger ${hungerLow ? 'critical' : ''}`}
+                  style={{ width: `${Math.max(0, Math.min(100, pokemonHunger))}%` }}
+                />
+              </div>
+              {hungerLow ? (
+                <div className={`hunger-warning ${hungerCritical ? 'critical' : ''}`}>
+                  {hungerCritical ? '꼬르륵...' : '배고프다...'}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="hud-top-right pokemon-count-panel">
@@ -162,6 +202,10 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
         <div className={`catch-result-banner ${catchAttemptResult.result}`}>
           {catchAttemptResult.result === 'caught' ? '잡았다!' : '이런! 도망쳤다!'}
         </div>
+      ) : null}
+
+      {role === 'trainer' && isDisoriented ? (
+        <div className="disoriented-overlay-text">혼란!</div>
       ) : null}
     </div>
   );

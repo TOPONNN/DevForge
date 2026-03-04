@@ -225,6 +225,30 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           applyCatchResult(parsed.data);
           break;
         }
+        case 'sanity_update': {
+          useGameStore.setState({ trainerSanity: parsed.data.sanity });
+          break;
+        }
+        case 'hunger_update': {
+          useGameStore.setState({ pokemonHunger: parsed.data.hunger });
+          break;
+        }
+        case 'trainer_penalty': {
+          useGameStore.getState().setDisoriented(parsed.data.duration);
+          soundManager.play('defeat');
+          break;
+        }
+        case 'pokemon_cry': {
+          soundManager.play('catch_fail');
+          break;
+        }
+        case 'berry_eaten': {
+          soundManager.play('catch_success');
+          break;
+        }
+        case 'hunger_warning': {
+          break;
+        }
         case 'chat': {
           set((state) => ({ chat: [...state.chat.slice(-29), parsed.data] }));
           break;
@@ -361,6 +385,30 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           applyCatchResult(parsed.data);
           break;
         }
+        case 'sanity_update': {
+          useGameStore.setState({ trainerSanity: parsed.data.sanity });
+          break;
+        }
+        case 'hunger_update': {
+          useGameStore.setState({ pokemonHunger: parsed.data.hunger });
+          break;
+        }
+        case 'trainer_penalty': {
+          useGameStore.getState().setDisoriented(parsed.data.duration);
+          soundManager.play('defeat');
+          break;
+        }
+        case 'pokemon_cry': {
+          soundManager.play('catch_fail');
+          break;
+        }
+        case 'berry_eaten': {
+          soundManager.play('catch_success');
+          break;
+        }
+        case 'hunger_warning': {
+          break;
+        }
         case 'chat': {
           set((state) => ({ chat: [...state.chat.slice(-29), parsed.data] }));
           break;
@@ -469,6 +517,30 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
         case 'catch_result': {
           applyCatchResult(parsed.data);
+          break;
+        }
+        case 'sanity_update': {
+          useGameStore.setState({ trainerSanity: parsed.data.sanity });
+          break;
+        }
+        case 'hunger_update': {
+          useGameStore.setState({ pokemonHunger: parsed.data.hunger });
+          break;
+        }
+        case 'trainer_penalty': {
+          useGameStore.getState().setDisoriented(parsed.data.duration);
+          soundManager.play('defeat');
+          break;
+        }
+        case 'pokemon_cry': {
+          soundManager.play('catch_fail');
+          break;
+        }
+        case 'berry_eaten': {
+          soundManager.play('catch_success');
+          break;
+        }
+        case 'hunger_warning': {
           break;
         }
         case 'chat': {

@@ -31,6 +31,10 @@ interface GameState {
   escaping: boolean;
   dodgeCooldown: number;
   isCaught: boolean;
+  trainerSanity: number;
+  pokemonHunger: number;
+  isDisoriented: boolean;
+  disorientedTimer: number;
   localPosition: Vector3Tuple;
   localRotation: [number, number, number];
   startCharge: () => void;
@@ -51,11 +55,16 @@ interface GameState {
   setTimeLeft: (value: number) => void;
   tickTimer: () => void;
   setCaught: (value: boolean) => void;
+  setTrainerSanity: (value: number) => void;
+  setPokemonHunger: (value: number) => void;
+  setDisoriented: (duration: number) => void;
+  tickDisoriented: (delta: number) => void;
   setLocalTransform: (position: Vector3Tuple, rotation: [number, number, number]) => void;
   resetRound: () => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
 export const useGameStore = create<GameState>((set, get) => ({
   phase: 'lobby',
@@ -73,6 +82,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   escaping: false,
   dodgeCooldown: 0,
   isCaught: false,
+  trainerSanity: 100,
+  pokemonHunger: 100,
+  isDisoriented: false,
+  disorientedTimer: 0,
   localPosition: [0, 1.1, 8],
   localRotation: [0, 0, 0],
 
@@ -97,7 +110,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return null;
     }
 
-    const velocityScale = 7 + throwData.power * 18;
+    const velocityScale = 12 + throwData.power * 15;
     const pokeball: ActivePokeball = {
       id: `pokeball-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       ownerId,
@@ -105,7 +118,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       position: throwData.origin,
       velocity: [
         throwData.direction[0] * velocityScale,
-        throwData.direction[1] * velocityScale + 3,
+        throwData.direction[1] * velocityScale,
         throwData.direction[2] * velocityScale,
       ],
       createdAt: Date.now(),
@@ -183,6 +196,29 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setCaught: (value) => set({ isCaught: value }),
+  setTrainerSanity: (value) => set({ trainerSanity: clampPercent(value) }),
+  setPokemonHunger: (value) => set({ pokemonHunger: clampPercent(value) }),
+  setDisoriented: (duration) => {
+    const timer = Math.max(0, duration);
+    set({
+      isDisoriented: timer > 0,
+      disorientedTimer: timer,
+    });
+  },
+  tickDisoriented: (delta) => {
+    if (delta <= 0) {
+      return;
+    }
+    const state = get();
+    if (!state.isDisoriented) {
+      return;
+    }
+    const nextTimer = Math.max(0, state.disorientedTimer - delta);
+    set({
+      disorientedTimer: nextTimer,
+      isDisoriented: nextTimer > 0,
+    });
+  },
   setLocalTransform: (position, rotation) => set({ localPosition: position, localRotation: rotation }),
 
   resetRound: () => {
@@ -198,6 +234,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       escaping: false,
       dodgeCooldown: 0,
       isCaught: false,
+      trainerSanity: 100,
+      pokemonHunger: 100,
+      isDisoriented: false,
+      disorientedTimer: 0,
     });
   },
 }));

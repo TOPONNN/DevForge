@@ -242,9 +242,6 @@ function PokemonBody({ species }: { species: PokemonSpecies }) {
   return <sphereGeometry args={[0.56 * species.modelScale, 24, 24]} />;
 }
 
-// Lerp factor for smooth position interpolation
-const POSITION_LERP_FACTOR = 0.15;
-
 export default function PokemonCharacter({
   id,
   name,
@@ -271,7 +268,7 @@ export default function PokemonCharacter({
     [],
   );
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const group = groupRef.current;
     const body = bodyRef.current;
     if (!group || !body) {
@@ -287,7 +284,7 @@ export default function PokemonCharacter({
       group.position.copy(targetPositionRef.current);
       initializedRef.current = true;
     } else {
-      group.position.lerp(targetPositionRef.current, POSITION_LERP_FACTOR);
+      group.position.lerp(targetPositionRef.current, 1 - Math.pow(0.001, delta));
     }
 
     group.rotation.y = rotation[1];
