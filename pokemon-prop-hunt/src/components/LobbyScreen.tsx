@@ -183,7 +183,7 @@ export default function LobbyScreen() {
               className="login-nickname-input"
               type="text"
               value={name}
-              placeholder="닉네임을 입력하세요"
+              placeholder=""
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleGoToChannels();

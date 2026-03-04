@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useAnimations, useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
@@ -29,6 +30,7 @@ const TARGET_HEIGHTS: Record<string, number> = {
   Blastoise: 1.8,
 };
 
+// Verified against actual GLB animation clip names
 const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
   Bulbasaur: { idle: 'waitA01', walk: 'walk01' },
   Ivysaur: { idle: 'defaultwait01_loop', walk: 'walk01_loop', run: 'run01_loop' },
@@ -46,13 +48,6 @@ type GLTFAsset = {
   animations: THREE.AnimationClip[];
 };
 
-type ModelAsset = {
-  clone: THREE.Group;
-  normalizedScale: number;
-  center: THREE.Vector3;
-  minY: number;
-};
-
 function PokemonModelGLTF({
   species,
   modelPath,
@@ -65,41 +60,47 @@ function PokemonModelGLTF({
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(modelPath) as GLTFAsset;
 
-  const asset = useMemo<ModelAsset>(() => {
-    const clone = scene.clone(true);
+  // Use SkeletonUtils.clone to properly clone SkinnedMesh with bone references
+  const { clonedScene, normalizedScale, minY, center } = useMemo(() => {
+    const cloned = skeletonClone(scene);
 
-    clone.traverse((object) => {
+    cloned.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.castShadow = true;
         object.receiveShadow = true;
         if (Array.isArray(object.material)) {
-          object.material = object.material.map((material) => material.clone());
+          object.material = object.material.map((mat: THREE.Material) => mat.clone());
         } else {
           object.material = object.material.clone();
         }
       }
     });
 
-    const bounds = new THREE.Box3().setFromObject(clone);
+    const bounds = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     bounds.getSize(size);
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
+    const ctr = new THREE.Vector3();
+    bounds.getCenter(ctr);
 
     const actualHeight = size.y;
     const targetHeight = TARGET_HEIGHTS[species.name] ?? 1.0;
-    const normalizedScale =
+    const scale =
       actualHeight > 0.001 ? (targetHeight * species.modelScale) / actualHeight : species.modelScale;
 
     return {
-      clone,
-      normalizedScale,
-      center,
+      clonedScene: cloned,
+      normalizedScale: scale,
       minY: bounds.min.y,
+      center: ctr,
     };
   }, [scene, species.modelScale, species.name]);
 
-  const { actions } = useAnimations(animations, group);
+  // Clone animation clips so they work with the cloned skeleton
+  const clonedAnimations = useMemo(() => {
+    return animations.map((clip) => clip.clone());
+  }, [animations]);
+
+  const { actions } = useAnimations(clonedAnimations, group);
   const animMap = ANIMATION_MAP[species.name];
 
   useEffect(() => {
@@ -123,8 +124,8 @@ function PokemonModelGLTF({
   }, [isMoving, actions, animMap]);
 
   return (
-    <group ref={group} scale={asset.normalizedScale} rotation={[0, Math.PI, 0]}>
-      <primitive object={asset.clone} position={[-asset.center.x, -asset.minY, -asset.center.z]} />
+    <group ref={group} scale={normalizedScale} rotation={[0, Math.PI, 0]}>
+      <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
     </group>
   );
 }
@@ -157,6 +158,9 @@ function PokemonBody({ species }: { species: PokemonSpecies }) {
   return <sphereGeometry args={[0.56 * species.modelScale, 24, 24]} />;
 }
 
+// Lerp factor for smooth position interpolation (per frame)
+const POSITION_LERP_FACTOR = 0.15;
+
 export default function PokemonCharacter({
   id,
   name,
@@ -171,6 +175,10 @@ export default function PokemonCharacter({
   const groupRef = useRef<THREE.Group | null>(null);
   const bodyRef = useRef<THREE.Group | null>(null);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
+  // Store target position for interpolation
+  const targetPositionRef = useRef(new THREE.Vector3(position[0], position[1], position[2]));
+  // Track if this is the first frame (skip lerp on initial placement)
+  const initializedRef = useRef(false);
 
   const trailOffsets = useMemo(
     () => [
@@ -189,14 +197,25 @@ export default function PokemonCharacter({
     }
 
     const t = clock.getElapsedTime();
-    const bobSpeed = isMoving ? 9 : 3.5;
-    const bobHeight = isMoving ? 0.12 : 0.05;
-    group.position.set(position[0], position[1] + Math.sin(t * bobSpeed + id.length) * bobHeight, position[2]);
+
+    // Update target position from network data (no bobbing — characters stay grounded)
+    targetPositionRef.current.set(position[0], position[1], position[2]);
+
+    if (!initializedRef.current) {
+      // First frame: snap to position immediately
+      group.position.copy(targetPositionRef.current);
+      initializedRef.current = true;
+    } else {
+      // Smooth interpolation toward target position
+      group.position.lerp(targetPositionRef.current, POSITION_LERP_FACTOR);
+    }
+
     group.rotation.y = rotation[1];
     group.visible = !isCaught;
 
-    body.rotation.z = isMoving ? Math.sin(t * 8) * 0.05 : 0;
-    body.rotation.x = isMoving ? -0.1 : 0;
+    // Subtle body tilt when moving (lean forward slightly)
+    body.rotation.z = isMoving ? Math.sin(t * 8) * 0.03 : 0;
+    body.rotation.x = isMoving ? -0.06 : 0;
 
     const opacity = invulnerable ? 0.45 + Math.abs(Math.sin(t * 16)) * 0.4 : 1;
     for (const material of flashMaterialsRef.current) {

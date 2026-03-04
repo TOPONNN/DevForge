@@ -38,6 +38,41 @@ function CameraSetup() {
   return null;
 }
 
+// Track previous positions to detect movement for remote players
+function useIsMoving(position: [number, number, number]): boolean {
+  const prevPosRef = useRef<[number, number, number]>([...position]);
+  const isMovingRef = useRef(false);
+
+  const dx = position[0] - prevPosRef.current[0];
+  const dz = position[2] - prevPosRef.current[2];
+  const distSq = dx * dx + dz * dz;
+
+  // Movement threshold: if position changed more than 0.001 units squared
+  isMovingRef.current = distSq > 0.001;
+  prevPosRef.current = [...position];
+
+  return isMovingRef.current;
+}
+
+function RemotePlayerPokemon({ player }: { player: { id: string; name: string; species: any; position: [number, number, number]; rotation: [number, number, number]; isCaught: boolean } }) {
+  const isMoving = useIsMoving(player.position);
+
+  return (
+    <PokemonCharacter
+      key={player.id}
+      id={player.id}
+      name={player.name}
+      species={player.species}
+      position={player.position}
+      rotation={player.rotation}
+      isMoving={isMoving && !player.isCaught}
+      escaping={false}
+      invulnerable={false}
+      isCaught={player.isCaught}
+    />
+  );
+}
+
 function RemotePlayers() {
   const playerId = useNetworkStore((state) => state.playerId);
   const players = useNetworkStore((state) => state.players);
@@ -48,20 +83,7 @@ function RemotePlayers() {
         .filter((player) => player.id !== playerId)
         .map((player) => {
           if (player.role === 'pokemon' && player.species) {
-            return (
-              <PokemonCharacter
-                key={player.id}
-                id={player.id}
-                name={player.name}
-                species={player.species}
-                position={player.position}
-                rotation={player.rotation}
-                isMoving={!player.isCaught}
-                escaping={false}
-                invulnerable={false}
-                isCaught={player.isCaught}
-              />
-            );
+            return <RemotePlayerPokemon key={player.id} player={player as any} />;
           }
           return (
             <mesh key={player.id} position={player.position} castShadow>

@@ -12,7 +12,7 @@ const BASE_RATE = 0.75;
 const MAX_RANGE = 50;
 const MAP_HALF_EXTENT = 50;
 const SPAWN_EDGE_BAND = 5;
-const SPAWN_HEIGHT = 1.1;
+const SPAWN_HEIGHT = 0.5;
 
 const speciesStats = {
   Pikachu: { speed: 6, catchDifficulty: 0.4, size: 'small', color: '#FFD60A', modelScale: 0.9 },
