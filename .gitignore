@@ -36,3 +36,18 @@ Thumbs.db
 
 # Jenkins workspace
 jenkins_home/
+
+# Assets (3D models, archives)
+assets/
+*.rar
+
+# Images
+*.jpg
+*.jpeg
+
+# Test artifacts
+pokemon-prop-hunt/test-results/
+pokemon-prop-hunt/test-*.js
+pokemon-prop-hunt/test-*.tsx
+pokemon-prop-hunt/test-*.cjs
+pokemon-prop-hunt/prep.ts
