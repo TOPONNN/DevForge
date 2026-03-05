@@ -137,4 +137,8 @@ export type NetworkMessage =
   | { type: 'trainer_penalty'; data: { type: string; duration: number } }
   | { type: 'pokemon_cry'; data: { playerId: string; position: Vector3Tuple } }
   | { type: 'berry_eaten'; data: { position: Vector3Tuple } }
-  | { type: 'hunger_warning'; data: { playerId: string; hunger: number } };
+  | { type: 'hunger_warning'; data: { playerId: string; hunger: number } }
+  // Channel lobby
+  | { type: 'list_channels'; data: Record<string, never> }
+  | { type: 'stop_list_channels'; data: Record<string, never> }
+  | { type: 'channel_counts'; data: { counts: Record<number, number> } };

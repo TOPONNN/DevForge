@@ -45,6 +45,7 @@ const speciesStats = {
 const rooms = new Map();
 const clients = new Map();
 const lobbyClients = new Map();
+const channelLobbyClients = new Set();
 
 const wss = new WebSocketServer({ port: PORT });
 
@@ -214,8 +215,31 @@ function broadcastRoomList(channel) {
       send(ws, 'room_list', { rooms: roomList });
     }
   }
+  broadcastChannelCounts();
 }
 
+function getChannelCounts() {
+  const counts = {};
+  for (let i = 1; i <= 4; i++) {
+    counts[i] = 0;
+  }
+  for (const room of rooms.values()) {
+    if (counts[room.channel] !== undefined) {
+      counts[room.channel]++;
+    }
+  }
+  return counts;
+}
+
+function broadcastChannelCounts() {
+  const counts = getChannelCounts();
+  for (const clientId of channelLobbyClients) {
+    const ws = clients.get(clientId);
+    if (ws) {
+      send(ws, 'channel_counts', { counts });
+    }
+  }
+}
 function assignRoles(room) {
   const players = [...room.players.values()];
   if (players.length === 0) {
@@ -722,6 +746,13 @@ wss.on('connection', (ws) => {
       case 'stop_list_rooms':
         handleStopListRooms(ws);
         break;
+      case 'list_channels':
+        channelLobbyClients.add(ws.clientId);
+        send(ws, 'channel_counts', { counts: getChannelCounts() });
+        break;
+      case 'stop_list_channels':
+        channelLobbyClients.delete(ws.clientId);
+        break;
       case 'create_room':
         handleCreateRoom(ws, data);
         break;
@@ -778,6 +809,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    channelLobbyClients.delete(ws.clientId);
     lobbyClients.delete(ws.clientId);
     leaveRoom(ws);
     clients.delete(ws.clientId);
