@@ -294,10 +294,14 @@ export default function PokemonCharacter({
       group.position.copy(targetPositionRef.current);
       initializedRef.current = true;
     } else {
-      group.position.lerp(targetPositionRef.current, 1 - Math.pow(0.001, delta));
+      group.position.lerp(targetPositionRef.current, 1 - Math.exp(-15 * delta));
     }
 
-    group.rotation.y = rotation[1];
+    // Smooth rotation (handle angle wrapping)
+    const targetYaw = rotation[1];
+    let deltaAngle = targetYaw - group.rotation.y;
+    deltaAngle = ((deltaAngle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    group.rotation.y += deltaAngle * (1 - Math.exp(-15 * delta));
     group.visible = !isCaught;
 
     // Subtle body tilt when moving
