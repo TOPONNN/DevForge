@@ -61,8 +61,11 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       if (!pointerLocked) {
         return;
       }
-      yawTargetRef.current -= event.movementX * 0.002;
-      pitchTargetRef.current -= event.movementY * 0.002;
+      // Clamp to prevent sudden jerks from pointer lock activation or high-DPI spikes
+      const mx = THREE.MathUtils.clamp(event.movementX, -100, 100);
+      const my = THREE.MathUtils.clamp(event.movementY, -100, 100);
+      yawTargetRef.current -= mx * 0.002;
+      pitchTargetRef.current -= my * 0.002;
       pitchTargetRef.current = THREE.MathUtils.clamp(pitchTargetRef.current, -1.35, 1.35);
     };
     window.addEventListener('mousemove', onMouseMove);

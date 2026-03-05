@@ -1,53 +1,71 @@
-# Dependencies
+# ──────────────────────────────────────────────
+# DevForge Root .gitignore
+# ──────────────────────────────────────────────
+
+# ── Dependencies ──────────────────────────────
 node_modules/
 
-# Build output
+# ── Build output ──────────────────────────────
 dist/
 dist-ssr/
+*.tsbuildinfo
 
-# Environment
+# ── Environment / Secrets ─────────────────────
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# IDE
+# ── IDE / Editor ──────────────────────────────
 .vscode/
 .idea/
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
 
-# Logs
+# ── OS generated ──────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# ── Logs ──────────────────────────────────────
 logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Screenshots (dev artifacts)
+# ── Dev screenshots / images (artifacts) ──────
 *.png
-
-# Reference repos
-S10P31A709/
-
-# OS
-Thumbs.db
-
-# Jenkins workspace
-jenkins_home/
-
-# Assets (3D models, archives)
-assets/
-*.rar
-
-# Images
 *.jpg
 *.jpeg
 
-# Test artifacts
+# ── Archives ──────────────────────────────────
+*.rar
+*.zip
+*.tar.gz
+*.7z
+
+# ── Reference repos ──────────────────────────
+S10P31A709/
+
+# ── Jenkins workspace ─────────────────────────
+jenkins_home/
+
+# ── AI agent workspace ────────────────────────
+.sisyphus/
+
+# ── Test artifacts ────────────────────────────
 pokemon-prop-hunt/test-results/
+pokemon-prop-hunt/playwright-report/
 pokemon-prop-hunt/test-*.js
 pokemon-prop-hunt/test-*.tsx
 pokemon-prop-hunt/test-*.cjs
 pokemon-prop-hunt/prep.ts
+
+# ── Misc assets (local only) ─────────────────
+assets/

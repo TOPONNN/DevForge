@@ -159,9 +159,26 @@ function PokemonModelGLTF({
   }, [animations]);
 
   const currentAction = useRef<THREE.AnimationAction | null>(null);
+  const armatureRestPositions = useRef<Map<string, THREE.Vector3> | null>(null);
 
-  // Update mixer every frame
-  useFrame((_, delta) => mixer.update(delta));
+  // Update mixer every frame, then neutralize root motion
+  useFrame((_, delta) => {
+    mixer.update(delta);
+    // Pin root bones to prevent walk animations from displacing the model
+    // (walk animations often include position tracks that move the Armature forward)
+    if (!armatureRestPositions.current) {
+      armatureRestPositions.current = new Map();
+      for (const child of clonedScene.children) {
+        armatureRestPositions.current.set(child.uuid, child.position.clone());
+      }
+    }
+    for (const child of clonedScene.children) {
+      const rest = armatureRestPositions.current.get(child.uuid);
+      if (rest) {
+        child.position.copy(rest);
+      }
+    }
+  });
 
   // Switch animation on isMoving change (also starts idle on mount)
   useEffect(() => {
