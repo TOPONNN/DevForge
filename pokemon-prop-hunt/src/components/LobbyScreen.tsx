@@ -155,15 +155,13 @@ export default function LobbyScreen() {
     return (
       <>
         <LobbyBackground3D />
-        <section className="lobby-screen">
-          <p className="main-subtitle">숨어라! 잡아라! 포켓몬 숨바꼭질</p>
-          <h1 className="main-title">포켓몬 숨바꼭질</h1>
-          <div className="lobby-guest-btn-wrap">
-            <button
-              type="button"
-              className="lobby-guest-btn btn-animation"
-              onClick={() => setView('nickname')}
-            >
+        <section className="lobby-screen lobby-main-screen">
+          <div className="main-top-area">
+            <p className="main-subtitle">숨어라! 잡아라! 포켓몬 숨바꼭질</p>
+            <h1 className="main-title">포켓몬 숨바꼭질</h1>
+          </div>
+          <div className="main-bottom-area">
+            <button type="button" className="lobby-guest-btn btn-animation" onClick={() => setView('nickname')}>
               Guest
             </button>
           </div>
@@ -177,32 +175,39 @@ export default function LobbyScreen() {
     return (
       <>
         <LobbyBackground3D />
-        <section className="lobby-screen">
-          <div className="login-panel">
-            <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
-            <div className="login-nickname-row">
-              <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
-              <input
-                className="login-nickname-input"
-                type="text"
-                value={name}
-                placeholder=""
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleGoToChannels();
-                }}
-              />
-            </div>
-            <div className="login-submit-wrap">
-              <button
-                type="button"
-                className="lobby-guest-btn btn-animation"
-                onClick={handleGoToChannels}
-              >
-                Guest
-              </button>
+        <section className="lobby-screen lobby-nickname-screen">
+          <div className="main-top-area nickname-top-area">
+            <p className="main-subtitle">닉네임을 정하고 채널로 입장하세요</p>
+            <h1 className="main-title">포켓몬 숨바꼭질</h1>
+          </div>
+          <div className="nickname-center-area">
+            <div className="login-panel">
+              <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
+              <div className="login-nickname-row">
+                <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
+                <input
+                  className="login-nickname-input"
+                  type="text"
+                  value={name}
+                  placeholder=""
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleGoToChannels();
+                  }}
+                />
+              </div>
+              <div className="login-submit-wrap">
+                <button
+                  type="button"
+                  className="lobby-guest-btn btn-animation"
+                  onClick={handleGoToChannels}
+                >
+                  Guest
+                </button>
+              </div>
             </div>
           </div>
+          <div className="main-bottom-area nickname-bottom-area" />
         </section>
       </>
     );
@@ -213,9 +218,11 @@ export default function LobbyScreen() {
     return (
       <>
         <LobbyBackground3D />
-        <section className="lobby-screen">
-          <div className="channel-outer-panel">
+        <section className="lobby-screen lobby-channel-screen">
+          <div className="main-top-area channel-top-area">
             <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
+          </div>
+          <div className="channel-outer-panel">
             <div className="channel-grid">
               {CHANNELS.map((ch) => (
                 <div
@@ -407,35 +414,37 @@ export default function LobbyScreen() {
         <div className="room-detail-layout">
           <div className="room-detail-players">
             <h2>플레이어 <span className="room-player-count">{readyCount}/{totalCount} 준비</span></h2>
-            <div className="player-list">
-              {connectedPlayers.map((player) => (
-                <div key={player.id} className={`player-row ${player.id === playerId ? 'is-me' : ''}`}>
-                  <div className="player-row-left">
-                    <span className="player-avatar">
-                      {player.id.startsWith('bot-') || player.isBot ? '🤖' : player.name.charAt(0)}
-                    </span>
-                    <span className="player-name">{player.name}</span>
-                  </div>
-                  <div className="player-row-tags">
-                    <span className={`role-chip ${player.role}`}>
-                      {player.role === 'trainer' ? '트레이너' : '포켓몬'}
-                    </span>
-                    {(player.id.startsWith('bot-') || player.isBot) && isHost ? (
-                      <button
-                        type="button"
-                        className="bot-remove-btn"
-                        onClick={() => removeBot(player.id)}
-                      >
-                        제거
-                      </button>
-                    ) : (
-                      <span className={`ready-chip ${player.ready ? 'is-ready' : ''}`}>
-                        {player.ready ? '✓' : '···'}
+            <div className="room-detail-player-scroll">
+              <div className="player-list">
+                {connectedPlayers.map((player) => (
+                  <div key={player.id} className={`player-row ${player.id === playerId ? 'is-me' : ''}`}>
+                    <div className="player-row-left">
+                      <span className="player-avatar">
+                        {player.id.startsWith('bot-') || player.isBot ? '🤖' : player.name.charAt(0)}
                       </span>
-                    )}
+                      <span className="player-name">{player.name}</span>
+                    </div>
+                    <div className="player-row-tags">
+                      <span className={`role-chip ${player.role}`}>
+                        {player.role === 'trainer' ? '트레이너' : '포켓몬'}
+                      </span>
+                      {(player.id.startsWith('bot-') || player.isBot) && isHost ? (
+                        <button
+                          type="button"
+                          className="bot-remove-btn"
+                          onClick={() => removeBot(player.id)}
+                        >
+                          제거
+                        </button>
+                      ) : (
+                        <span className={`ready-chip ${player.ready ? 'is-ready' : ''}`}>
+                          {player.ready ? '✓' : '···'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             {isHost && (
               <button type="button" className="bot-add-btn" onClick={addBot}>
