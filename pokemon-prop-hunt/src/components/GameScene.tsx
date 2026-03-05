@@ -29,7 +29,7 @@ function CameraSetup() {
   }, [camera]);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog('#C8DFB0', 50, 220);
+    scene.fog = new THREE.Fog('#C8DFB0', 150, 700);
     return () => {
       scene.fog = null;
     };
@@ -122,7 +122,7 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
         shadows
         dpr={[1, 2]}
         frameloop="always"
-        camera={{ fov: 75, near: 0.1, far: 500, position: [0, 1.6, 12] }}
+        camera={{ fov: 75, near: 0.1, far: 2000, position: [0, 1.6, 12] }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#B5D8F0']} />
@@ -135,8 +135,8 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
           <PokeballSystem pointerLocked={pointerLocked} />
         </Physics>
 
-        <mesh ref={sunRef} position={[40, 50, 25]}>
-          <sphereGeometry args={[8, 32, 32]} />
+        <mesh ref={sunRef} position={[200, 300, 150]}>
+          <sphereGeometry args={[20, 32, 32]} />
           <meshBasicMaterial color="#FFD080" />
         </mesh>
 
