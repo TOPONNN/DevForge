@@ -1165,7 +1165,7 @@ setInterval(() => {
       const { mx, mz } = tickBotAI(bot, trainers, 0.1);
       const x = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[0] + mx));
       const z = Math.max(-MAP_HALF_EXTENT, Math.min(MAP_HALF_EXTENT, bot.position[2] + mz));
-      const yaw = Math.atan2(mx, mz);
+      const yaw = Math.atan2(-mx, -mz);
       bot.position = [x, SPAWN_HEIGHT, z];
       bot.rotation = [0, Number.isFinite(yaw) ? yaw : 0, 0];
 

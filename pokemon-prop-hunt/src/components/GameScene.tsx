@@ -1,6 +1,6 @@
 import { AdaptiveDpr, AdaptiveEvents, Stats } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Bloom, EffectComposer, GodRays } from '@react-three/postprocessing';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Physics } from '@react-three/rapier';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -145,7 +145,6 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
   const showFps = false;
   const phase = useGameStore((state) => state.phase);
   const isDisoriented = useGameStore((state) => state.isDisoriented);
-  const sunRef = useRef<THREE.Mesh>(null!);
 
   if (phase === 'lobby' || phase === 'selecting') {
     return null;
@@ -171,15 +170,9 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
           <PokeballSystem pointerLocked={pointerLocked} />
         </Physics>
 
-        <mesh ref={sunRef} position={[200, 300, 150]}>
-          <sphereGeometry args={[20, 32, 32]} />
-          <meshBasicMaterial color="#FFD080" />
-        </mesh>
-
         <CatchAnimation />
         <EffectComposer multisampling={0}>
-          <GodRays sun={sunRef} samples={10} density={0.88} decay={0.93} weight={0.3} exposure={0.5} clampMax={1} />
-          <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.4} mipmapBlur />
+          <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.4} intensity={0.3} mipmapBlur />
         </EffectComposer>
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
