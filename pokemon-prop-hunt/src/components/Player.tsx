@@ -48,7 +48,6 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   const footstepTimerRef = useRef(0);
   const pokemonMovingRef = useRef(false);
   const lookEulerRef = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
-  const lookQuaternionRef = useRef(new THREE.Quaternion());
   const pokemonVelocityRef = useRef(new THREE.Vector3());
   const moveDirection = useMemo(() => new THREE.Vector3(), []);
   const targetVelocity = useMemo(() => new THREE.Vector3(), []);
