@@ -38,29 +38,49 @@ function CameraSetup() {
   return null;
 }
 
-// Track previous positions to detect movement for remote players
+function WebGLGuard() {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      console.warn('[WebGL] Context lost — will attempt restore');
+    };
+    const onRestored = () => {
+      console.log('[WebGL] Context restored');
+      gl.clear(true, true, true);
+    };
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+    };
+  }, [gl]);
+
+  return null;
+}
+
+// Track previous positions to detect movement for remote players (time-based hysteresis)
 function useIsMoving(position: [number, number, number]): boolean {
   const prevPosRef = useRef<[number, number, number]>([...position]);
   const isMovingRef = useRef(false);
-  const stillFramesRef = useRef(0);
+  const lastMoveTimeRef = useRef(0);
 
   const dx = position[0] - prevPosRef.current[0];
   const dz = position[2] - prevPosRef.current[2];
   const distSq = dx * dx + dz * dz;
 
-  const movingNow = distSq > 0.01 * 0.01;
-  if (movingNow) {
-    stillFramesRef.current = 0;
+  const now = performance.now();
+  if (distSq > 0.0001) {
+    lastMoveTimeRef.current = now;
     isMovingRef.current = true;
-  } else if (isMovingRef.current) {
-    stillFramesRef.current += 1;
-    if (stillFramesRef.current >= 3) {
-      isMovingRef.current = false;
-    }
+  } else if (isMovingRef.current && now - lastMoveTimeRef.current > 250) {
+    isMovingRef.current = false;
   }
 
   prevPosRef.current = [...position];
-
   return isMovingRef.current;
 }
 
@@ -120,13 +140,14 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
     <div className={`game-canvas-shell ${isDisoriented ? 'disoriented' : ''}`}>
       <Canvas
         shadows
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         frameloop="always"
         camera={{ fov: 75, near: 0.1, far: 2000, position: [0, 1.6, 12] }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#B5D8F0']} />
         <CameraSetup />
+        <WebGLGuard />
 
         <Physics gravity={[0, -20, 0]} interpolate>
           <GameMap />
@@ -142,7 +163,7 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
 
         <CatchAnimation />
         <EffectComposer>
-          <GodRays sun={sunRef} samples={60} density={0.96} decay={0.9} weight={0.4} exposure={0.6} clampMax={1} />
+          <GodRays sun={sunRef} samples={20} density={0.93} decay={0.93} weight={0.3} exposure={0.5} clampMax={1} />
           <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
         </EffectComposer>
         <AdaptiveDpr pixelated />

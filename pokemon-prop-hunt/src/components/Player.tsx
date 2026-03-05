@@ -54,6 +54,8 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   const targetVelocity = useMemo(() => new THREE.Vector3(), []);
   const cameraTargetPosition = useMemo(() => new THREE.Vector3(), []);
   const cameraLookAt = useMemo(() => new THREE.Vector3(), []);
+  const smoothLookAtRef = useRef(new THREE.Vector3());
+  const smoothLookAtInitRef = useRef(false);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -86,9 +88,12 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     );
     groundedRef.current = world.castRay(ray, 1.1, true, undefined, undefined, undefined, body) !== null;
 
-    const cameraSmoothing = Math.min(1, 1 - Math.pow(0.0001, delta));
-    yawRef.current = THREE.MathUtils.lerp(yawRef.current, yawTargetRef.current, cameraSmoothing);
-    pitchRef.current = THREE.MathUtils.lerp(pitchRef.current, pitchTargetRef.current, cameraSmoothing);
+    // Role-dependent smoothing: 1st person needs near-instant response, 3rd person needs smooth follow
+    const lookSmooth = role === 'trainer'
+      ? 1 - Math.exp(-50 * delta)   // Fast, responsive for 1st person
+      : 1 - Math.exp(-12 * delta);  // Smooth for 3rd person
+    yawRef.current = THREE.MathUtils.lerp(yawRef.current, yawTargetRef.current, lookSmooth);
+    pitchRef.current = THREE.MathUtils.lerp(pitchRef.current, pitchTargetRef.current, lookSmooth);
 
     const forwardInput = (keys.backward ? 1 : 0) - (keys.forward ? 1 : 0);
     const strafeInput = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -115,11 +120,11 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       }
       jumpHeldRef.current = keys.jump;
 
+      // 1st person camera - direct quaternion (no double smoothing)
       lookEulerRef.current.set(pitchRef.current, yawRef.current, 0, 'YXZ');
-      lookQuaternionRef.current.setFromEuler(lookEulerRef.current);
-      camera.quaternion.slerp(lookQuaternionRef.current, cameraSmoothing);
+      camera.quaternion.setFromEuler(lookEulerRef.current);
       cameraTargetPosition.set(translation.x, translation.y + EYE_HEIGHT, translation.z);
-      camera.position.lerp(cameraTargetPosition, cameraSmoothing);
+      camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-25 * delta));
     } else {
       const speciesSpeed = selectedSpecies?.speed ?? 4.5;
       const boosted = escaping ? speciesSpeed * 1.55 : speciesSpeed;
@@ -148,16 +153,24 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       }
       dodgeHeldRef.current = keys.jump;
 
+      // 3rd person camera - smooth follow with smoothed lookAt target to prevent jitter
+      const camSmooth = 1 - Math.exp(-8 * delta);
       cameraLookAt.set(translation.x, translation.y + 0.8, translation.z);
+      if (!smoothLookAtInitRef.current) {
+        smoothLookAtRef.current.copy(cameraLookAt);
+        smoothLookAtInitRef.current = true;
+      } else {
+        smoothLookAtRef.current.lerp(cameraLookAt, 1 - Math.exp(-12 * delta));
+      }
       const dist = 4.1;
       const height = 1.9;
       cameraTargetPosition.set(
-        cameraLookAt.x + Math.sin(yawRef.current) * dist,
-        cameraLookAt.y + height + Math.sin(pitchRef.current) * 0.6,
-        cameraLookAt.z + Math.cos(yawRef.current) * dist,
+        smoothLookAtRef.current.x + Math.sin(yawRef.current) * dist,
+        smoothLookAtRef.current.y + height + Math.sin(pitchRef.current) * 0.6,
+        smoothLookAtRef.current.z + Math.cos(yawRef.current) * dist,
       );
-      camera.position.lerp(cameraTargetPosition, cameraSmoothing);
-      camera.lookAt(cameraLookAt);
+      camera.position.lerp(cameraTargetPosition, camSmooth);
+      camera.lookAt(smoothLookAtRef.current);
     }
 
     const isMovingNow = moveDirection.lengthSq() > 0 && pointerLocked && (!isCaught || role === 'trainer');

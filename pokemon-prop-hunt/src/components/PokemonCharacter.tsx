@@ -204,6 +204,16 @@ function PokemonModelGLTF({
     return () => {
       mixer.stopAllAction();
       mixer.uncacheRoot(clonedScene);
+      // Dispose cloned materials & geometries to free GPU memory
+      clonedScene.traverse((child) => {
+        if (!(child as THREE.Mesh).isMesh) return;
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats) {
+          if (mat && typeof mat.dispose === 'function') mat.dispose();
+        }
+      });
     };
   }, [mixer, clonedScene, animations, species.name]);
 

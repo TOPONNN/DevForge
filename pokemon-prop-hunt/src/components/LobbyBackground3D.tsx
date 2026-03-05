@@ -295,6 +295,21 @@ function LobbyPokemon({ placement }: { placement: PokemonPlacement }) {
   // This handles bone resolution reliably across all skeleton structures
   const { actions } = useAnimations(animations, innerRef);
 
+  // Dispose cloned scene on unmount to free GPU memory
+  useEffect(() => {
+    return () => {
+      clonedScene.traverse((child) => {
+        if (!(child as THREE.Mesh).isMesh) return;
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats) {
+          if (mat && typeof mat.dispose === 'function') mat.dispose();
+        }
+      });
+    };
+  }, [clonedScene]);
+
   // Animation sequencing state
   const [seqIndex, setSeqIndex] = useState(0);
   const currentActionRef = useRef<THREE.AnimationAction | null>(null);
@@ -499,7 +514,7 @@ function GroundRing() {
    Floating particles for atmosphere
    ───────────────────────────────────────────────────────── */
 function FloatingParticles() {
-  const count = 120;
+  const count = 60;
   const pointsRef = useRef<THREE.Points>(null);
 
   const { positions, speeds } = useMemo(() => {

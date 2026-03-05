@@ -110,6 +110,7 @@ function extractCollisionData(scene: THREE.Group) {
       }
 
       grounds.push({ vertices, indices });
+      geo.dispose();
     } else if (isPrefix(name, COLLISION_PREFIXES)) {
       mesh.updateWorldMatrix(true, false);
       const box = new THREE.Box3().setFromObject(mesh);
@@ -259,7 +260,7 @@ function MountainBackground() {
     };
 
     const list: { x: number; z: number; s: number; r: number }[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 40; i++) {
       const angle = (i / 60) * Math.PI * 2;
       const radius = 650 + rng() * 100;
       list.push({
@@ -303,15 +304,15 @@ function MapLighting() {
         intensity={1.5}
         color="#FFD080"
         position={[200, 300, 150]}
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-bias={-0.0002}
         shadow-camera-near={10}
-        shadow-camera-far={800}
-        shadow-camera-left={-400}
-        shadow-camera-right={400}
-        shadow-camera-top={400}
-        shadow-camera-bottom={-400}
+        shadow-camera-far={600}
+        shadow-camera-left={-250}
+        shadow-camera-right={250}
+        shadow-camera-top={250}
+        shadow-camera-bottom={-250}
       />
 
       {/* Fill / bounce light */}
@@ -338,7 +339,7 @@ function Atmosphere() {
       />
 
       <Sparkles
-        count={200}
+        count={80}
         scale={[600, 50, 600]}
         size={6}
         speed={0.3}
@@ -347,13 +348,10 @@ function Atmosphere() {
         noise={1}
       />
 
-      <Cloud position={[-120, 80, -180]} opacity={0.15} speed={0.08} scale={[15, 4, 8]} segments={22} color="#FFF6EE" />
-      <Cloud position={[60, 95, -50]} opacity={0.2} speed={0.06} scale={[12, 3.5, 7]} segments={20} color="#FFF9F2" />
-      <Cloud position={[180, 75, 120]} opacity={0.15} speed={0.07} scale={[14, 4, 9]} segments={22} color="#FFF7EF" />
-      <Cloud position={[-220, 100, 150]} opacity={0.12} speed={0.06} scale={[16, 5, 10]} segments={20} color="#FFF5EA" />
-      <Cloud position={[10, 88, -250]} opacity={0.18} speed={0.05} scale={[13, 3.5, 8]} segments={18} color="#FFFAF5" />
-      <Cloud position={[300, 85, -100]} opacity={0.14} speed={0.04} scale={[18, 5, 11]} segments={24} color="#FFF8F0" />
-      <Cloud position={[-350, 92, 0]} opacity={0.13} speed={0.05} scale={[14, 4, 9]} segments={20} color="#FFFBF5" />
+      <Cloud position={[-120, 80, -180]} opacity={0.15} speed={0.08} scale={[15, 4, 8]} segments={12} color="#FFF6EE" />
+      <Cloud position={[60, 95, -50]} opacity={0.2} speed={0.06} scale={[12, 3.5, 7]} segments={10} color="#FFF9F2" />
+      <Cloud position={[180, 75, 120]} opacity={0.15} speed={0.07} scale={[14, 4, 9]} segments={12} color="#FFF7EF" />
+      <Cloud position={[-220, 100, 150]} opacity={0.12} speed={0.06} scale={[16, 5, 10]} segments={10} color="#FFF5EA" />
     </>
   );
 }
