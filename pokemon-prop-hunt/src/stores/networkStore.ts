@@ -17,6 +17,8 @@ interface NetworkState {
   lobbyWs: WebSocket | null;
   channel: number;
   rooms: RoomListItem[];
+  channelWs: WebSocket | null;
+  channelCounts: Record<number, number>;
 
   // Room state
   ws: WebSocket | null;
@@ -31,6 +33,8 @@ interface NetworkState {
   connectLobby: (channel: number) => void;
   disconnectLobby: () => void;
   setChannel: (channel: number) => void;
+  connectChannelLobby: () => void;
+  disconnectChannelLobby: () => void;
   createRoom: (opts: { roomName: string; password?: string; maxPlayers: number; mapId: string; channel: number; playerName: string }) => void;
   joinRoom: (roomCode: string, playerName: string, password?: string) => void;
 
@@ -102,6 +106,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   lobbyWs: null,
   channel: 1,
   rooms: [],
+  channelWs: null,
+  channelCounts: {},
 
   // Room state
   ws: null,
@@ -277,6 +283,35 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     if (ws && ws.readyState === WebSocket.OPEN) {
       sendMessage(ws, { type: 'list_rooms', data: { channel } });
     }
+  },
+
+  connectChannelLobby: () => {
+    const prev = get().channelWs;
+    if (prev) prev.close();
+
+    const ws = new WebSocket(buildSocketUrl());
+    ws.onopen = () => {
+      sendMessage(ws, { type: 'list_channels', data: {} });
+      set({ channelWs: ws });
+    };
+    ws.onclose = () => {
+      set({ channelWs: null });
+    };
+    ws.onerror = () => {
+      // silent
+    };
+    ws.onmessage = (event) => {
+      const parsed = JSON.parse(String(event.data)) as NetworkMessage;
+      if (parsed.type === 'channel_counts') {
+        set({ channelCounts: parsed.data.counts });
+      }
+    };
+  },
+
+  disconnectChannelLobby: () => {
+    const ws = get().channelWs;
+    if (ws) ws.close();
+    set({ channelWs: null, channelCounts: {} });
   },
 
   createRoom: (opts) => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 import PokemonSelect from './PokemonSelect';
@@ -6,10 +6,10 @@ import LobbyBackground3D from './LobbyBackground3D';
 import type { PokemonSpecies } from '../types/game';
 
 const CHANNELS = [
-  { id: 1, name: '1 채널' },
-  { id: 2, name: '2 채널' },
-  { id: 3, name: '3 채널' },
-  { id: 4, name: '4 채널' },
+  { id: 1, name: '태초마을' },
+  { id: 2, name: '상록숲' },
+  { id: 3, name: '달맞이산' },
+  { id: 4, name: '보라타운' },
 ];
 
 const MAX_PLAYER_OPTS = [4, 6, 8, 10, 12];
@@ -40,6 +40,9 @@ export default function LobbyScreen() {
   const joinRoom = useNetworkStore((s) => s.joinRoom);
   const addBot = useNetworkStore((s) => s.addBot);
   const removeBot = useNetworkStore((s) => s.removeBot);
+  const channelCounts = useNetworkStore((s) => s.channelCounts);
+  const connectChannelLobby = useNetworkStore((s) => s.connectChannelLobby);
+  const disconnectChannelLobby = useNetworkStore((s) => s.disconnectChannelLobby);
 
   const [name, setName] = useState('');
   const [chatInput, setChatInput] = useState('');
@@ -60,6 +63,14 @@ export default function LobbyScreen() {
   const localPlayer = players.get(playerId);
   const localRole = localPlayer?.role ?? 'pokemon';
   const connectedPlayers = useMemo(() => [...players.values()], [players]);
+
+  // Auto-connect/disconnect channel lobby WS when on channels view
+  useEffect(() => {
+    if (view === 'channels' && !isConnected) {
+      connectChannelLobby();
+      return () => disconnectChannelLobby();
+    }
+  }, [view, isConnected, connectChannelLobby, disconnectChannelLobby]);
 
   const handleToggleReady = () => {
     const next = !ready;
@@ -213,7 +224,7 @@ export default function LobbyScreen() {
                   onClick={() => handleSelectChannel(ch.id)}
                 >
                   <p className="channel-card-name">{ch.name}</p>
-                  <p className="channel-card-count">0/100</p>
+                  <p className="channel-card-count">방 {channelCounts[ch.id] ?? 0}개</p>
                 </div>
               ))}
             </div>
@@ -236,7 +247,7 @@ export default function LobbyScreen() {
                 className="sidebar-btn"
                 onClick={handleBackToChannels}
               >
-                ← 채널선택
+                ← 서버 선택
               </p>
               <p
                 className="sidebar-btn"
