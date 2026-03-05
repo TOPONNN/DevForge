@@ -152,32 +152,30 @@ function PokemonModelGLTF({
   // Binding to clonedScene (not a group wrapper) ensures bones are found directly.
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
 
+  // Strip root-motion .position tracks from animation clips so walk animations
+  // don't displace the model. Preserve CusAnim* material/UV tracks and rotation/scale.
   const clipsByName = useMemo(() => {
     const m: Record<string, THREE.AnimationClip> = {};
-    for (const c of animations) m[c.name] = c;
+    for (const c of animations) {
+      const stripped = c.clone();
+      stripped.tracks = stripped.tracks.filter(track => {
+        // Keep all non-position tracks (rotation, scale, quaternion, etc.)
+        if (!track.name.endsWith('.position')) return true;
+        // Keep material/UV animation tracks (CusAnimMat_*, CusAnimVis_*)
+        if (track.name.startsWith('CusAnim')) return true;
+        // Strip bone position tracks (root motion carriers like Waist, Origin, etc.)
+        return false;
+      });
+      m[stripped.name] = stripped;
+    }
     return m;
   }, [animations]);
 
   const currentAction = useRef<THREE.AnimationAction | null>(null);
-  const armatureRestPositions = useRef<Map<string, THREE.Vector3> | null>(null);
 
-  // Update mixer every frame, then neutralize root motion
+  // Update mixer every frame
   useFrame((_, delta) => {
     mixer.update(delta);
-    // Pin root bones to prevent walk animations from displacing the model
-    // (walk animations often include position tracks that move the Armature forward)
-    if (!armatureRestPositions.current) {
-      armatureRestPositions.current = new Map();
-      for (const child of clonedScene.children) {
-        armatureRestPositions.current.set(child.uuid, child.position.clone());
-      }
-    }
-    for (const child of clonedScene.children) {
-      const rest = armatureRestPositions.current.get(child.uuid);
-      if (rest) {
-        child.position.copy(rest);
-      }
-    }
   });
 
   // Switch animation on isMoving change (also starts idle on mount)

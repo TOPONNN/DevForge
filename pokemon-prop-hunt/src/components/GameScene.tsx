@@ -43,19 +43,34 @@ function WebGLGuard() {
 
   useEffect(() => {
     const canvas = gl.domElement;
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+
     const onLost = (e: Event) => {
       e.preventDefault();
-      console.warn('[WebGL] Context lost — will attempt restore');
+      console.warn('[WebGL] Context lost — will attempt restore, auto-reload in 5s');
+      // If context doesn't restore within 5 seconds, force reload
+      reloadTimer = setTimeout(() => {
+        console.warn('[WebGL] Context not restored after 5s — reloading page');
+        window.location.reload();
+      }, 5000);
     };
     const onRestored = () => {
       console.log('[WebGL] Context restored');
+      if (reloadTimer) {
+        clearTimeout(reloadTimer);
+        reloadTimer = null;
+      }
+      // Re-initialize renderer state after context restore
       gl.clear(true, true, true);
+      gl.setSize(canvas.clientWidth, canvas.clientHeight);
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
     return () => {
       canvas.removeEventListener('webglcontextlost', onLost);
       canvas.removeEventListener('webglcontextrestored', onRestored);
+      if (reloadTimer) clearTimeout(reloadTimer);
     };
   }, [gl]);
 
@@ -162,9 +177,9 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
         </mesh>
 
         <CatchAnimation />
-        <EffectComposer>
-          <GodRays sun={sunRef} samples={20} density={0.93} decay={0.93} weight={0.3} exposure={0.5} clampMax={1} />
-          <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.6} mipmapBlur />
+        <EffectComposer multisampling={0}>
+          <GodRays sun={sunRef} samples={10} density={0.88} decay={0.93} weight={0.3} exposure={0.5} clampMax={1} />
+          <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.4} intensity={0.4} mipmapBlur />
         </EffectComposer>
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
