@@ -12,6 +12,7 @@ import GameMap from './GameMap';
 import Player from './Player';
 import PokeballSystem from './PokeballSystem';
 import PokemonCharacter from './PokemonCharacter';
+import CatchAnimation3D from './CatchAnimation3D';
 
 interface GameSceneProps {
   keysRef: ReturnType<typeof useKeyboard>;
@@ -169,6 +170,8 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
           <RemotePlayers />
           <PokeballSystem pointerLocked={pointerLocked} />
         </Physics>
+
+        <CatchAnimation3D />
 
         <CatchAnimation />
         <EffectComposer multisampling={0}>

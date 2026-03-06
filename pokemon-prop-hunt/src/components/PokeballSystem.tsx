@@ -91,6 +91,8 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
   const setChargePower = useGameStore((state) => state.setChargePower);
   const releaseThrow = useGameStore((state) => state.releaseThrow);
   const setPokeballState = useGameStore((state) => state.setPokeballState);
+  const startCatchAnim = useGameStore((state) => state.startCatchAnim);
+  const removePokeball = useGameStore((state) => state.removePokeball);
 
   const playerId = useNetworkStore((state) => state.playerId);
   const players = useNetworkStore((state) => state.players);
@@ -162,7 +164,10 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
         if (dx * dx + dy * dy + dz * dz <= hitRadius * hitRadius) {
           attemptedBallsRef.current.add(ball.id);
           soundManager.play('catch_wiggle');
+          // Start 3D catch animation & remove original ball
+          startCatchAnim(ball.position, remotePlayer.position, remotePlayer.id);
           setPokeballState(ball.id, 'wiggling');
+          removePokeball(ball.id);
           sendCatchAttempt({
             origin: ball.position,
             direction: ball.velocity,
@@ -170,9 +175,8 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
             pokemonTarget: remotePlayer.id,
           });
           window.setTimeout(() => {
-            useGameStore.getState().removePokeball(ball.id);
             attemptedBallsRef.current.delete(ball.id);
-          }, 1400);
+          }, 5000);
           break;
         }
       }
