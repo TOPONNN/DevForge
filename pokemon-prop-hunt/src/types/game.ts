@@ -70,6 +70,15 @@ export interface ActivePokeball {
   targetId?: string;
 }
 
+export interface CatchAnimData {
+  id: string;
+  ballPosition: Vector3Tuple;
+  pokemonPosition: Vector3Tuple;
+  pokemonId: string;
+  shakeCount: 1 | 2 | 3;
+  startTime: number;
+}
+
 export interface CatchResultPayload {
   result: CatchResult;
   pokemonId: string;

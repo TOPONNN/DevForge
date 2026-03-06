@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   POKEMON_SPECIES,
   type ActivePokeball,
+  type CatchAnimData,
   type CatchResult,
   type GamePhase,
   type PlayerRole,
@@ -37,6 +38,7 @@ interface GameState {
   disorientedTimer: number;
   localPosition: Vector3Tuple;
   localRotation: [number, number, number];
+  catchAnim: CatchAnimData | null;
   startCharge: () => void;
   setChargePower: (value: number) => void;
   releaseThrow: (throwData: ThrowData, ownerId: string) => ActivePokeball | null;
@@ -60,6 +62,8 @@ interface GameState {
   setDisoriented: (duration: number) => void;
   tickDisoriented: (delta: number) => void;
   setLocalTransform: (position: Vector3Tuple, rotation: [number, number, number]) => void;
+  startCatchAnim: (ballPos: Vector3Tuple, pokemonPos: Vector3Tuple, pokemonId: string) => void;
+  clearCatchAnim: () => void;
   resetRound: () => void;
 }
 
@@ -88,6 +92,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   disorientedTimer: 0,
   localPosition: [0, 1.1, 8],
   localRotation: [0, 0, 0],
+  catchAnim: null,
 
   startCharge: () => {
     const state = get();
@@ -221,6 +226,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   setLocalTransform: (position, rotation) => set({ localPosition: position, localRotation: rotation }),
 
+  startCatchAnim: (ballPos, pokemonPos, pokemonId) => {
+    set({
+      catchAnim: {
+        id: `catch-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+        ballPosition: ballPos,
+        pokemonPosition: pokemonPos,
+        pokemonId,
+        shakeCount: (1 + Math.floor(Math.random() * 3)) as 1 | 2 | 3,
+        startTime: performance.now(),
+      },
+    });
+  },
+
+  clearCatchAnim: () => set({ catchAnim: null }),
+
   resetRound: () => {
     set({
       phase: 'preparing',
@@ -238,6 +258,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       pokemonHunger: 100,
       isDisoriented: false,
       disorientedTimer: 0,
+      catchAnim: null,
     });
   },
 }));
