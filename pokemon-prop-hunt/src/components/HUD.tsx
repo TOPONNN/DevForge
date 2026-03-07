@@ -22,6 +22,8 @@ const formatTime = (time: number) => {
 
 export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
   const role = useGameStore((state) => state.role);
+  const cameraMode = useGameStore((state) => state.cameraMode);
+  const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
   const phase = useGameStore((state) => state.phase);
   const timeLeft = useGameStore((state) => state.timeLeft);
   const pokeballs = useGameStore((state) => state.pokeballs);
@@ -150,6 +152,16 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
               <div className="throw-meter-pct">{Math.round(throwPower * 100)}%</div>
             </div>
           ) : null}
+
+          <div className="hud-camera-mode" onClick={() => toggleCameraMode()} style={{
+            position: 'fixed', bottom: '20px', left: '20px',
+            background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '8px 16px',
+            borderRadius: '8px', cursor: 'pointer', fontSize: '14px',
+            fontFamily: '"Noto Sans KR", sans-serif', userSelect: 'none',
+            border: '1px solid rgba(255,255,255,0.2)', zIndex: 100,
+          }}>
+            📷 {cameraMode === 'first-person' ? '1인칭' : '3인칭'} (V)
+          </div>
         </>
       ) : (
         <>

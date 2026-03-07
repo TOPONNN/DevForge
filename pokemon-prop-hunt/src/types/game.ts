@@ -75,7 +75,6 @@ export interface CatchAnimData {
   ballPosition: Vector3Tuple;
   pokemonPosition: Vector3Tuple;
   pokemonId: string;
-  shakeCount: 1 | 2 | 3;
   startTime: number;
 }
 

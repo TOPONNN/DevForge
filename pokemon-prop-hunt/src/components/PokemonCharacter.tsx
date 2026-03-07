@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
+import { useGameStore } from '../stores/gameStore';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
@@ -45,6 +46,24 @@ const FALLBACK_SCALES: Record<string, number> = {
   Wartortle: 0.0897,
   Blastoise: 0.1306,
 };
+
+const BASE_GROUND_OFFSET = -0.8;
+
+const GROUND_OFFSETS: Record<string, number> = {
+  Bulbasaur: 0.0,
+  Ivysaur: 0.0,
+  Venusaur: 0.0,
+  Charmander: 0.0,
+  Charmeleon: 0.0,
+  Charizard: 0.0,
+  Squirtle: 0.0,
+  Wartortle: 0.0,
+  Blastoise: 0.0,
+};
+
+export function getGroundOffset(speciesName: string): number {
+  return BASE_GROUND_OFFSET + (GROUND_OFFSETS[speciesName] ?? 0);
+}
 
 // Verified against actual GLB animation clip names (parsed from binary GLTF data)
 const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
@@ -97,7 +116,7 @@ function PokemonModelGLTF({
     // giving wrong bounds for models with non-identity root transforms (Armature scale 10).
     cloned.updateMatrixWorld(true);
 
-    const bounds = new THREE.Box3().setFromObject(cloned);
+    const bounds = new THREE.Box3().setFromObject(cloned, true);
     const size = new THREE.Vector3();
     const ctr = new THREE.Vector3();
 
@@ -136,9 +155,6 @@ function PokemonModelGLTF({
       scale = fallback ?? species.modelScale;
     }
 
-    console.log(
-      `[Pokemon] ${species.name}: actualH=${actualHeight.toFixed(2)}, targetH=${targetHeight}, scale=${scale.toFixed(6)}, minY=${bounds.min.y.toFixed(2)}`,
-    );
 
     return {
       clonedScene: cloned,
@@ -172,10 +188,52 @@ function PokemonModelGLTF({
   }, [animations]);
 
   const currentAction = useRef<THREE.AnimationAction | null>(null);
+  const groundCorrectionRef = useRef(0);
+  const correctionComputedRef = useRef(false);
+  const frameCountRef = useRef(0);
+  const outerGroupRef = useRef<THREE.Group>(null);
 
-  // Update mixer every frame
+  // Update mixer every frame + compute ground correction from animated bounds
   useFrame((_, delta) => {
     mixer.update(delta);
+    frameCountRef.current++;
+
+    // After 30 frames (~0.5s), compute actual visual bounds with bone transforms applied
+    // This gives us the true bottom of the animated mesh, which may differ from bind-pose bounds
+    if (frameCountRef.current === 30 && !correctionComputedRef.current) {
+      correctionComputedRef.current = true;
+      clonedScene.updateMatrixWorld(true);
+      const worldBounds = new THREE.Box3();
+      const tempVec = new THREE.Vector3();
+      clonedScene.traverse((child: THREE.Object3D) => {
+        if (!(child as THREE.SkinnedMesh).isSkinnedMesh) return;
+        const skinnedMesh = child as THREE.SkinnedMesh;
+        const geo = skinnedMesh.geometry;
+        const posAttr = geo.getAttribute('position');
+        if (!posAttr) return;
+        for (let i = 0; i < posAttr.count; i += 5) {
+          skinnedMesh.getVertexPosition(i, tempVec);
+          tempVec.applyMatrix4(skinnedMesh.matrixWorld);
+          worldBounds.expandByPoint(tempVec);
+        }
+      });
+      if (!worldBounds.isEmpty() && worldBounds.min.y < -0.01) {
+        // The visual bottom is below Y=0 in the outer group space
+        // Apply correction to lift the model so its feet touch the ground
+        groundCorrectionRef.current = -worldBounds.min.y;
+      }
+    }
+
+    // Smoothly apply ground correction to the outer group
+    if (outerGroupRef.current && groundCorrectionRef.current > 0) {
+      const target = groundCorrectionRef.current;
+      const current = outerGroupRef.current.position.y;
+      if (Math.abs(target - current) > 0.001) {
+        outerGroupRef.current.position.y += (target - current) * (1 - Math.exp(-10 * delta));
+      } else {
+        outerGroupRef.current.position.y = target;
+      }
+    }
   });
 
   // Switch animation on isMoving change (also starts idle on mount)
@@ -209,13 +267,6 @@ function PokemonModelGLTF({
 
   // Cleanup mixer on unmount or model swap
   useEffect(() => {
-    // Log clip names for debugging
-    const animMap = ANIMATION_MAP[species.name];
-    const clipNames = animations.map((c) => c.name);
-    console.log(
-      `[Pokemon] ${species.name}: ${animations.length} clips [${clipNames.slice(0, 5).join(', ')}${clipNames.length > 5 ? '...' : ''}]`,
-      `idle="${animMap?.idle}" walk="${animMap?.walk}"`,
-    );
     return () => {
       mixer.stopAllAction();
       mixer.uncacheRoot(clonedScene);
@@ -233,8 +284,10 @@ function PokemonModelGLTF({
   }, [mixer, clonedScene, animations, species.name]);
 
   return (
-    <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
-      <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
+    <group ref={outerGroupRef}>
+      <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
+        <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
+      </group>
     </group>
   );
 }
@@ -278,6 +331,8 @@ export default function PokemonCharacter({
   invulnerable,
   isCaught,
 }: PokemonCharacterProps) {
+  const catchAnim = useGameStore((state) => state.catchAnim);
+  const isBeingCaught = catchAnim?.pokemonId === id;
   const groupRef = useRef<THREE.Group | null>(null);
   const bodyRef = useRef<THREE.Group | null>(null);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
@@ -317,7 +372,7 @@ export default function PokemonCharacter({
     let deltaAngle = targetYaw - group.rotation.y;
     deltaAngle = ((deltaAngle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     group.rotation.y += deltaAngle * (1 - Math.exp(-15 * delta));
-    group.visible = !isCaught;
+    group.visible = !isCaught && !isBeingCaught;
 
     // Subtle body tilt when moving
     body.rotation.z = isMoving ? Math.sin(t * 8) * 0.03 : 0;

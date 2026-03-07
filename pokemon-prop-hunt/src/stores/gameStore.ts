@@ -3,6 +3,7 @@ import {
   POKEMON_SPECIES,
   type ActivePokeball,
   type CatchAnimData,
+  type CatchResultPayload,
   type CatchResult,
   type GamePhase,
   type PlayerRole,
@@ -19,6 +20,7 @@ interface CatchAttemptResult {
 interface GameState {
   phase: GamePhase;
   role: PlayerRole;
+  cameraMode: 'first-person' | 'third-person';
   timeLeft: number;
   prepTime: number;
   huntTime: number;
@@ -39,6 +41,8 @@ interface GameState {
   localPosition: Vector3Tuple;
   localRotation: [number, number, number];
   catchAnim: CatchAnimData | null;
+  pendingCatchResult: CatchResultPayload | null;
+  catchAnimPhase: 'idle' | 'animating' | 'result';
   startCharge: () => void;
   setChargePower: (value: number) => void;
   releaseThrow: (throwData: ThrowData, ownerId: string) => ActivePokeball | null;
@@ -53,6 +57,7 @@ interface GameState {
   setDodgeCooldown: (value: number) => void;
   clearCatchAttemptResult: () => void;
   setRole: (role: PlayerRole) => void;
+  toggleCameraMode: () => void;
   setPhase: (phase: GamePhase) => void;
   setTimeLeft: (value: number) => void;
   tickTimer: () => void;
@@ -63,6 +68,9 @@ interface GameState {
   tickDisoriented: (delta: number) => void;
   setLocalTransform: (position: Vector3Tuple, rotation: [number, number, number]) => void;
   startCatchAnim: (ballPos: Vector3Tuple, pokemonPos: Vector3Tuple, pokemonId: string) => void;
+  setPendingCatchResult: (payload: CatchResultPayload) => void;
+  clearPendingCatchResult: () => void;
+  setCatchAnimPhase: (phase: 'idle' | 'animating' | 'result') => void;
   clearCatchAnim: () => void;
   resetRound: () => void;
 }
@@ -73,6 +81,7 @@ const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 export const useGameStore = create<GameState>((set, get) => ({
   phase: 'lobby',
   role: 'pokemon',
+  cameraMode: 'first-person',
   timeLeft: 15,
   prepTime: 15,
   huntTime: 180,
@@ -93,6 +102,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   localPosition: [0, 1.1, 8],
   localRotation: [0, 0, 0],
   catchAnim: null,
+  pendingCatchResult: null,
+  catchAnimPhase: 'idle',
 
   startCharge: () => {
     const state = get();
@@ -189,6 +200,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   setDodgeCooldown: (value) => set({ dodgeCooldown: Math.max(0, value) }),
   clearCatchAttemptResult: () => set({ catchAttemptResult: null }),
   setRole: (role) => set({ role }),
+  toggleCameraMode: () =>
+    set((state) => ({
+      cameraMode: state.cameraMode === 'first-person' ? 'third-person' : 'first-person',
+    })),
   setPhase: (phase) => set({ phase }),
   setTimeLeft: (value) => set({ timeLeft: Math.max(0, value) }),
 
@@ -233,17 +248,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         ballPosition: ballPos,
         pokemonPosition: pokemonPos,
         pokemonId,
-        shakeCount: (1 + Math.floor(Math.random() * 3)) as 1 | 2 | 3,
         startTime: performance.now(),
       },
+      catchAnimPhase: 'animating',
     });
   },
 
-  clearCatchAnim: () => set({ catchAnim: null }),
+  setPendingCatchResult: (payload) => set({ pendingCatchResult: payload }),
+  clearPendingCatchResult: () => set({ pendingCatchResult: null }),
+  setCatchAnimPhase: (phase) => set({ catchAnimPhase: phase }),
+
+  clearCatchAnim: () => set({ catchAnim: null, catchAnimPhase: 'idle', pendingCatchResult: null }),
 
   resetRound: () => {
     set({
       phase: 'preparing',
+      cameraMode: 'first-person',
       timeLeft: get().prepTime,
       pokeballs: 10,
       throwPower: 0,
@@ -259,6 +279,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       isDisoriented: false,
       disorientedTimer: 0,
       catchAnim: null,
+      pendingCatchResult: null,
+      catchAnimPhase: 'idle',
     });
   },
 }));

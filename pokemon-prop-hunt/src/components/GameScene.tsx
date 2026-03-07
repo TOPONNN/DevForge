@@ -1,17 +1,19 @@
-import { AdaptiveDpr, AdaptiveEvents, Stats } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
+import { AdaptiveDpr, AdaptiveEvents, Stats, Text, useGLTF } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Physics } from '@react-three/rapier';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
+import type { RemotePlayer } from '../types/game';
 import CatchAnimation from './CatchAnimation';
 import GameMap from './GameMap';
 import Player from './Player';
 import PokeballSystem from './PokeballSystem';
-import PokemonCharacter from './PokemonCharacter';
+import PokemonCharacter, { getGroundOffset } from './PokemonCharacter';
 import CatchAnimation3D from './CatchAnimation3D';
 
 interface GameSceneProps {
@@ -56,7 +58,6 @@ function WebGLGuard() {
       }, 5000);
     };
     const onRestored = () => {
-      console.log('[WebGL] Context restored');
       if (reloadTimer) {
         clearTimeout(reloadTimer);
         reloadTimer = null;
@@ -109,13 +110,244 @@ function RemotePlayerPokemon({ player }: { player: { id: string; name: string; s
       id={player.id}
       name={player.name}
       species={player.species}
-      position={player.position}
+      position={[player.position[0], player.position[1] + getGroundOffset(player.species.name), player.position[2]]}
       rotation={player.rotation}
       isMoving={isMoving && !player.isCaught}
       escaping={false}
       invulnerable={false}
       isCaught={player.isCaught}
     />
+  );
+}
+
+function RemoteTrainer({ player }: { player: RemotePlayer }) {
+  const isMoving = useIsMoving(player.position);
+  const activePokeballs = useGameStore((state) => state.activePokeballs);
+  const { scene, animations } = useGLTF('/models/ash_ketchum.glb');
+
+  const { clonedScene, normalizedScale, minY, center, clipsByName } = useMemo(() => {
+    const cloned = cloneSkeleton(scene) as THREE.Object3D;
+    const sketchfabRoot = cloned.getObjectByName('Sketchfab_model');
+    if (sketchfabRoot) {
+      // Keep the original -90° X rotation (converts Z-up Blender geometry to Y-up Three.js)
+      // Only reset position to center the model
+      sketchfabRoot.position.set(0, 0, 0);
+    }
+    const boneNames = new Set<string>();
+
+    cloned.traverse((child: THREE.Object3D) => {
+      if ((child as THREE.Bone).isBone) {
+        boneNames.add(child.name);
+      }
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map((mat) => mat.clone());
+        } else if (mesh.material) {
+          mesh.material = mesh.material.clone();
+        }
+      }
+      if ((child as THREE.SkinnedMesh).isSkinnedMesh) {
+        (child as THREE.SkinnedMesh).frustumCulled = false;
+      }
+    });
+
+    cloned.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(cloned, false);
+    const size = new THREE.Vector3();
+    const ctr = new THREE.Vector3();
+    bounds.getSize(size);
+    bounds.getCenter(ctr);
+    const scale = 1.0;
+
+    const clipMap: Record<string, THREE.AnimationClip> = {};
+    for (const clip of animations) {
+      if (clip.name === 'Sketchfab_modelAction') {
+        continue;
+      }
+      const stripped = clip.clone();
+      stripped.tracks = stripped.tracks.filter((track) => {
+        const dotIdx = track.name.lastIndexOf('.');
+        const nodeName = dotIdx >= 0 ? track.name.slice(0, dotIdx) : track.name;
+        if (nodeName === 'Sketchfab_model') return false;
+        if (track.name.endsWith('.position') && !boneNames.has(nodeName)) {
+          return false;
+        }
+        return true;
+      });
+      clipMap[stripped.name] = stripped;
+    }
+    return {
+      clonedScene: cloned,
+      normalizedScale: scale,
+      minY: bounds.isEmpty() ? 0 : bounds.min.y,
+      center: ctr,
+      clipsByName: clipMap,
+    };
+  }, [scene, animations]);
+
+  const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
+  const walkActionRef = useRef<THREE.AnimationAction | null>(null);
+  const idleActionRef = useRef<THREE.AnimationAction | null>(null);
+  const fightActionRef = useRef<THREE.AnimationAction | null>(null);
+  const throwingUntilRef = useRef(0);
+  const isThrowingRef = useRef(false);
+  const prevBallIdsRef = useRef<Set<string>>(new Set());
+  const animReadyRef = useRef(false);
+  const outerGroupRef = useRef<THREE.Group>(null);
+
+  const applyLocomotion = (moving: boolean) => {
+    const walkAction = walkActionRef.current;
+    const idleAction = idleActionRef.current;
+    if (moving) {
+      if (idleAction) idleAction.fadeOut(0.3);
+      if (walkAction) {
+        walkAction.enabled = true;
+        walkAction.setLoop(THREE.LoopRepeat, Infinity);
+        walkAction.clampWhenFinished = false;
+        walkAction.fadeIn(0.3).play();
+      }
+      return;
+    }
+    if (walkAction) walkAction.fadeOut(0.3);
+    if (idleAction) {
+      idleAction.enabled = true;
+      idleAction.setLoop(THREE.LoopRepeat, Infinity);
+      idleAction.clampWhenFinished = false;
+      idleAction.fadeIn(0.3).play();
+    }
+  };
+
+  useEffect(() => {
+    const walkingClip = clipsByName.Walking;
+    const idleClip = clipsByName.Talking ?? clipsByName.Singing ?? clipsByName.House;
+    const fightClip = clipsByName.Fight;
+    walkActionRef.current = walkingClip ? mixer.clipAction(walkingClip) : null;
+    idleActionRef.current = idleClip ? mixer.clipAction(idleClip) : null;
+    fightActionRef.current = fightClip ? mixer.clipAction(fightClip) : null;
+
+    if (walkActionRef.current) {
+      walkActionRef.current.enabled = true;
+    }
+    // Start idle immediately with full weight — no fadeIn to prevent bind-pose flash
+    if (idleActionRef.current) {
+      idleActionRef.current.enabled = true;
+      idleActionRef.current.setLoop(THREE.LoopRepeat, Infinity);
+      idleActionRef.current.play();
+    }
+    mixer.update(0);
+    animReadyRef.current = true;
+    return () => {
+      animReadyRef.current = false;
+      mixer.stopAllAction();
+      mixer.uncacheRoot(clonedScene);
+      clonedScene.traverse((child) => {
+        if (!(child as THREE.Mesh).isMesh) {
+          return;
+        }
+        const mesh = child as THREE.Mesh;
+        mesh.geometry.dispose();
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats) {
+          if (mat && typeof mat.dispose === 'function') {
+            mat.dispose();
+          }
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clonedScene, clipsByName, mixer]);
+
+  useEffect(() => {
+    if (isThrowingRef.current) {
+      return;
+    }
+    applyLocomotion(isMoving);
+  }, [isMoving]);
+
+  useEffect(() => {
+    const previous = prevBallIdsRef.current;
+    const next = new Set<string>();
+    let shouldThrow = false;
+
+    for (const ball of activePokeballs) {
+      next.add(ball.id);
+      if (previous.has(ball.id)) {
+        continue;
+      }
+
+      const dx = ball.position[0] - player.position[0];
+      const dz = ball.position[2] - player.position[2];
+      const distanceSq = dx * dx + dz * dz;
+      const ownedByTrainer = ball.ownerId === player.id;
+      if (ownedByTrainer || distanceSq < 4) {
+        shouldThrow = true;
+      }
+    }
+
+    prevBallIdsRef.current = next;
+
+    if (!shouldThrow) {
+      return;
+    }
+
+    const fightAction = fightActionRef.current;
+    const walkAction = walkActionRef.current;
+    const idleAction = idleActionRef.current;
+    if (!fightAction) {
+      return;
+    }
+
+    throwingUntilRef.current = performance.now() + 900;
+    isThrowingRef.current = true;
+    if (walkAction) {
+      walkAction.fadeOut(0.12);
+    }
+    if (idleAction) {
+      idleAction.fadeOut(0.12);
+    }
+    fightAction.enabled = true;
+    fightAction.setLoop(THREE.LoopOnce, 1);
+    fightAction.clampWhenFinished = true;
+    fightAction.reset().fadeIn(0.12).play();
+  }, [activePokeballs, player.id, player.position]);
+
+  useFrame((_, delta) => {
+    mixer.update(delta);
+    // Show model only after animation is ready (prevents bind-pose face-down flash)
+    if (outerGroupRef.current && animReadyRef.current && !outerGroupRef.current.visible) {
+      outerGroupRef.current.visible = true;
+    }
+    if (!isThrowingRef.current) {
+      return;
+    }
+    if (performance.now() < throwingUntilRef.current) {
+      return;
+    }
+
+    const fightAction = fightActionRef.current;
+    if (fightAction) {
+      fightAction.fadeOut(0.12);
+      fightAction.stop();
+    }
+    isThrowingRef.current = false;
+    applyLocomotion(isMoving);
+  });
+
+  return (
+    <group ref={outerGroupRef} visible={false} position={player.position} rotation={[0, player.rotation[1], 0]}>
+      {/* Capsule half-extent = 0.8 + ground correction = 0.306 (measured runtime) */}
+      <group position={[0, -(0.45 + 0.35) - 0.306, 0]}>
+        <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
+          <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
+        </group>
+      </group>
+      <Text position={[0, 1.9, 0]} fontSize={0.22} color="#FFFFFF" outlineColor="#1D3557" outlineWidth={0.04}>
+        {player.name}
+      </Text>
+    </group>
   );
 }
 
@@ -131,12 +363,7 @@ function RemotePlayers() {
           if (player.role === 'pokemon' && player.species) {
             return <RemotePlayerPokemon key={player.id} player={player as any} />;
           }
-          return (
-            <mesh key={player.id} position={player.position} castShadow>
-              <capsuleGeometry args={[0.35, 0.9, 8, 12]} />
-              <meshStandardMaterial color="#1D3557" roughness={0.38} metalness={0.1} />
-            </mesh>
-          );
+          return <RemoteTrainer key={player.id} player={player} />;
         })}
     </group>
   );
@@ -184,3 +411,5 @@ export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
     </div>
   );
 }
+
+useGLTF.preload('/models/ash_ketchum.glb');

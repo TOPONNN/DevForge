@@ -8,6 +8,8 @@ import { useGameStore } from '../stores/gameStore';
  */
 export default function CatchAnimation() {
   const catchAttemptResult = useGameStore((state) => state.catchAttemptResult);
+  const catchAnimPhase = useGameStore((state) => state.catchAnimPhase);
+  const catchAnim = useGameStore((state) => state.catchAnim);
 
   const [visible, setVisible] = useState(false);
 
@@ -15,12 +17,15 @@ export default function CatchAnimation() {
     if (!catchAttemptResult) {
       return;
     }
+    if (catchAnim && catchAnimPhase !== 'result') {
+      return;
+    }
     setVisible(true);
     const hideTimer = window.setTimeout(() => {
       setVisible(false);
     }, 2500);
     return () => window.clearTimeout(hideTimer);
-  }, [catchAttemptResult]);
+  }, [catchAttemptResult, catchAnimPhase, catchAnim]);
 
   const label = useMemo(() => {
     if (!catchAttemptResult) {

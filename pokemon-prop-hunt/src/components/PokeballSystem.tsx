@@ -1,37 +1,27 @@
 import { useFrame, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useGameStore } from '../stores/gameStore';
 import { useNetworkStore } from '../stores/networkStore';
 import { soundManager } from '../systems/sound';
 import type { ActivePokeball, ThrowData } from '../types/game';
 
-function ProceduralPokeballMesh() {
-  return (
-    <group>
-      <mesh castShadow>
-        <sphereGeometry args={[0.2, 20, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#E63946" roughness={0.28} metalness={0.14} />
-      </mesh>
-      <mesh castShadow>
-        <sphereGeometry args={[0.2, 20, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-        <meshStandardMaterial color="#F8F9FA" roughness={0.22} metalness={0.08} />
-      </mesh>
-      <mesh>
-        <torusGeometry args={[0.2, 0.015, 8, 24]} />
-        <meshStandardMaterial color="#111111" />
-      </mesh>
-      <mesh position={[0, 0, 0.2]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.02, 16]} />
-        <meshStandardMaterial color="#111111" />
-      </mesh>
-      <mesh position={[0, 0, 0.208]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.022, 16]} />
-        <meshStandardMaterial color="#F8F9FA" />
-      </mesh>
-    </group>
-  );
+function PokeballGLBMesh() {
+  const { scene } = useGLTF('/models/pokeball/pokeball.glb');
+  const cloned = useMemo(() => {
+    const c = cloneSkeleton(scene) as THREE.Object3D;
+    c.traverse((child: THREE.Object3D) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+      }
+    });
+    return c;
+  }, [scene]);
+
+  return <primitive object={cloned} scale={[0.4, 0.4, 0.4]} />;
 }
 
 function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
@@ -53,11 +43,22 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
       [position.x, position.y, position.z],
       [velocity.x, velocity.y, velocity.z],
     );
-    if (position.y < 0.1 && !hasGroundHitRef.current) {
+    if (position.y < 0.35 && !hasGroundHitRef.current) {
       hasGroundHitRef.current = true;
       soundManager.play('pokeball_bounce');
       setPokeballState(ball.id, 'broken');
+
+      body.setTranslation({ x: position.x, y: 0.2, z: position.z }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      body.setLinearDamping(50);
+      body.setAngularDamping(50);
+
       window.setTimeout(() => removePokeball(ball.id), 2000);
+    }
+
+    if (position.y < -5) {
+      removePokeball(ball.id);
     }
   });
 
@@ -68,13 +69,15 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
       colliders={false}
       linearVelocity={ball.velocity}
       mass={0.22}
-      restitution={0.35}
-      friction={0.9}
+      restitution={0.25}
+      friction={0.6}
       enabledRotations={[true, true, true]}
       gravityScale={1}
+      linearDamping={0.5}
+      angularDamping={2.0}
     >
       <BallCollider args={[0.2]} />
-      <ProceduralPokeballMesh />
+      <PokeballGLBMesh />
     </RigidBody>
   );
 }
@@ -84,6 +87,8 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
 
   const role = useGameStore((state) => state.role);
   const phase = useGameStore((state) => state.phase);
+  const cameraMode = useGameStore((state) => state.cameraMode);
+  const localPosition = useGameStore((state) => state.localPosition);
   const throwPower = useGameStore((state) => state.throwPower);
   const isCharging = useGameStore((state) => state.isCharging);
   const activePokeballs = useGameStore((state) => state.activePokeballs);
@@ -119,8 +124,28 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
       direction.y += 0.05;
       direction.normalize();
 
+      let origin: [number, number, number];
+      if (cameraMode === 'third-person') {
+        origin = [localPosition[0], localPosition[1] + 1.3, localPosition[2]];
+
+        const cameraDir = new THREE.Vector3();
+        camera.getWorldDirection(cameraDir);
+        const farPoint = new THREE.Vector3().copy(camera.position).addScaledVector(cameraDir, 100);
+        const throwDir = new THREE.Vector3(
+          farPoint.x - origin[0],
+          farPoint.y - origin[1],
+          farPoint.z - origin[2],
+        ).normalize();
+        throwDir.y = Math.max(throwDir.y, 0.03);
+        throwDir.normalize();
+
+        direction.copy(throwDir);
+      } else {
+        origin = [camera.position.x, camera.position.y - 0.1, camera.position.z];
+      }
+
       const throwData: ThrowData = {
-        origin: [camera.position.x, camera.position.y - 0.1, camera.position.z],
+        origin,
         direction: [direction.x, direction.y, direction.z],
         power: throwPower,
       };
@@ -137,7 +162,19 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [camera, phase, playerId, pointerLocked, releaseThrow, role, sendThrow, startCharge, throwPower]);
+  }, [
+    camera,
+    cameraMode,
+    localPosition,
+    phase,
+    playerId,
+    pointerLocked,
+    releaseThrow,
+    role,
+    sendThrow,
+    startCharge,
+    throwPower,
+  ]);
 
   useFrame(() => {
     if (isCharging) {
@@ -191,3 +228,5 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
     </>
   );
 }
+
+useGLTF.preload('/models/pokeball/pokeball.glb');

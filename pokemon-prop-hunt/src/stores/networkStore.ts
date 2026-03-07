@@ -87,6 +87,12 @@ const sendMessage = (ws: WebSocket | null, message: NetworkMessage) => {
 
 const applyCatchResult = (payload: CatchResultPayload) => {
   const game = useGameStore.getState();
+
+  if (game.catchAnim) {
+    game.setPendingCatchResult(payload);
+    return;
+  }
+
   if (payload.result === 'caught') {
     soundManager.play('catch_success');
     game.registerCatch(payload.pokemonId, payload.pokemonName);
