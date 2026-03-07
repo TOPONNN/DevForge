@@ -5,8 +5,9 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@re
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useKeyboard } from '../hooks/useKeyboard';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { dodge, gameActions } from '../stores/gameSlice';
+import { useAppDispatch, useAppSelector } from '../stores/hooks';
+import { sendPosition } from '../stores/networkSlice';
 import { soundManager } from '../systems/sound';
 import PokemonCharacter, { getGroundOffset } from './PokemonCharacter';
 
@@ -30,8 +31,8 @@ interface LocalTrainerModelProps {
 
 function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   const { scene, animations } = useGLTF('/models/ash_ketchum.glb');
-  const activePokeballs = useGameStore((state) => state.activePokeballs);
-  const localPlayerId = useNetworkStore((state) => state.playerId) || 'local-trainer';
+  const activePokeballs = useAppSelector((state) => state.game.activePokeballs);
+  const localPlayerId = useAppSelector((state) => state.network.playerId) || 'local-trainer';
 
   const { clonedScene, normalizedScale, minY, center, clipsByName } = useMemo(() => {
     const cloned = cloneSkeleton(scene) as THREE.Object3D;
@@ -224,9 +225,7 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   }, [activePokeballs, localPlayerId]);
 
   const animReadyRef = useRef(false);
-  const measureCountRef = useRef(0);
   const outerGroupRef = useRef<THREE.Group>(null);
-  const groundCorrectionRef = useRef(0);
   useFrame((_, delta) => {
     mixer.update(delta);
     // Show model only after animation is ready (prevents bind-pose face-down flash)
@@ -244,29 +243,10 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
         applyLocomotion(isMoving);
       }
     }
-    // Multi-frame ground correction: sample every 10 frames for 3 seconds
-    // Catches both idle and walk pose differences
-    if (outerGroupRef.current && animReadyRef.current && measureCountRef.current < 180) {
-      measureCountRef.current++;
-      if (measureCountRef.current % 10 === 0) {
-        outerGroupRef.current.updateMatrixWorld(true);
-        const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
-        const needed = -worldBox.min.y;
-        // Always take the largest correction (worst-case sinking)
-        if (Math.abs(needed) > Math.abs(groundCorrectionRef.current) + 0.01) {
-          groundCorrectionRef.current = needed;
-        }
-      }
-    }
-    // Apply ground correction
-    if (outerGroupRef.current && groundCorrectionRef.current !== 0) {
-      const capsuleOffset = -(0.45 + 0.35);
-      outerGroupRef.current.position.y = capsuleOffset + groundCorrectionRef.current;
-    }
   });
 
   return (
-    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw + Math.PI, 0]}>
+    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw, 0]}>
       <group scale={normalizedScale}>
         <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
       </group>
@@ -275,24 +255,20 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
 }
 
 export default function Player({ keysRef, pointerLocked }: PlayerProps) {
+  const dispatch = useAppDispatch();
   const bodyRef = useRef<RapierRigidBody | null>(null);
   const { camera } = useThree();
   const { world, rapier } = useRapier();
 
-  const role = useGameStore((state) => state.role);
-  const cameraMode = useGameStore((state) => state.cameraMode);
-  const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
-  const isCaught = useGameStore((state) => state.isCaught);
-  const selectedSpecies = useGameStore((state) => state.selectedSpecies);
-  const escaping = useGameStore((state) => state.escaping);
-  const dodgeCooldown = useGameStore((state) => state.dodgeCooldown);
-  const dodge = useGameStore((state) => state.dodge);
-  const setDodgeCooldown = useGameStore((state) => state.setDodgeCooldown);
-  const setLocalTransform = useGameStore((state) => state.setLocalTransform);
+  const role = useAppSelector((state) => state.game.role);
+  const cameraMode = useAppSelector((state) => state.game.cameraMode);
+  const isCaught = useAppSelector((state) => state.game.isCaught);
+  const selectedSpecies = useAppSelector((state) => state.game.selectedSpecies);
+  const escaping = useAppSelector((state) => state.game.escaping);
+  const dodgeCooldown = useAppSelector((state) => state.game.dodgeCooldown);
 
-  const sendPosition = useNetworkStore((state) => state.sendPosition);
-  const playerId = useNetworkStore((state) => state.playerId);
-  const playerName = useNetworkStore((state) => state.players.get(playerId)?.name ?? 'You');
+  const playerId = useAppSelector((state) => state.network.playerId);
+  const playerName = useAppSelector((state) => state.network.players[playerId]?.name ?? 'You');
 
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
@@ -336,12 +312,12 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'KeyV' && role === 'trainer') {
-        toggleCameraMode();
+        dispatch(gameActions.toggleCameraMode());
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [role, toggleCameraMode]);
+  }, [dispatch, role]);
 
   useFrame((_, delta) => {
     const body = bodyRef.current;
@@ -350,7 +326,7 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     }
 
     if (dodgeCooldown > 0) {
-      setDodgeCooldown(Math.max(0, dodgeCooldown - delta));
+      dispatch(gameActions.setDodgeCooldown(Math.max(0, dodgeCooldown - delta)));
     }
 
     const keys = keysRef.current;
@@ -447,7 +423,7 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       );
 
       if (keys.jump && !dodgeHeldRef.current && pointerLocked && !isCaught) {
-        if (dodge()) {
+        if (dispatch(dodge())) {
           soundManager.play('pokemon_dodge');
           const dodgeDir = moveDirection.lengthSq() > 0 ? moveDirection.clone().multiplyScalar(12) : new THREE.Vector3(0, 0, -8);
           body.applyImpulse({ x: dodgeDir.x, y: 0.4, z: dodgeDir.z }, true);
@@ -497,14 +473,13 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
     }
 
     const syncYaw = role === 'pokemon' ? movementYawRef.current : yawRef.current;
-    setLocalTransform(
-      [translation.x, translation.y, translation.z],
-      [pitchRef.current, syncYaw, 0],
+    dispatch(
+      gameActions.setLocalTransform({
+        position: [translation.x, translation.y, translation.z],
+        rotation: [pitchRef.current, syncYaw, 0],
+      }),
     );
-    sendPosition(
-      [translation.x, translation.y, translation.z],
-      [pitchRef.current, syncYaw, 0],
-    );
+    dispatch(sendPosition([translation.x, translation.y, translation.z], [pitchRef.current, syncYaw, 0]));
   });
 
   return (

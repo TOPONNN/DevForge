@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { gameActions } from '../stores/gameSlice';
+import { useAppDispatch, useAppSelector } from '../stores/hooks';
 
 const KOREAN_NAMES: Record<string, string> = {
   Bulbasaur: '이상해씨', Ivysaur: '이상해풀', Venusaur: '이상해꽃',
@@ -21,40 +21,39 @@ const formatTime = (time: number) => {
 };
 
 export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
-  const role = useGameStore((state) => state.role);
-  const cameraMode = useGameStore((state) => state.cameraMode);
-  const toggleCameraMode = useGameStore((state) => state.toggleCameraMode);
-  const phase = useGameStore((state) => state.phase);
-  const timeLeft = useGameStore((state) => state.timeLeft);
-  const pokeballs = useGameStore((state) => state.pokeballs);
-  const throwPower = useGameStore((state) => state.throwPower);
-  const isCharging = useGameStore((state) => state.isCharging);
-  const caughtPokemon = useGameStore((state) => state.caughtPokemon);
-  const selectedSpecies = useGameStore((state) => state.selectedSpecies);
-  const dodgeCooldown = useGameStore((state) => state.dodgeCooldown);
-  const isCaught = useGameStore((state) => state.isCaught);
-  const trainerSanity = useGameStore((state) => state.trainerSanity);
-  const pokemonHunger = useGameStore((state) => state.pokemonHunger);
-  const isDisoriented = useGameStore((state) => state.isDisoriented);
-  const catchAttemptResult = useGameStore((state) => state.catchAttemptResult);
-  const clearCatchAttemptResult = useGameStore((state) => state.clearCatchAttemptResult);
+  const dispatch = useAppDispatch();
+  const role = useAppSelector((state) => state.game.role);
+  const cameraMode = useAppSelector((state) => state.game.cameraMode);
+  const phase = useAppSelector((state) => state.game.phase);
+  const timeLeft = useAppSelector((state) => state.game.timeLeft);
+  const pokeballs = useAppSelector((state) => state.game.pokeballs);
+  const throwPower = useAppSelector((state) => state.game.throwPower);
+  const isCharging = useAppSelector((state) => state.game.isCharging);
+  const caughtPokemon = useAppSelector((state) => state.game.caughtPokemon);
+  const selectedSpecies = useAppSelector((state) => state.game.selectedSpecies);
+  const dodgeCooldown = useAppSelector((state) => state.game.dodgeCooldown);
+  const isCaught = useAppSelector((state) => state.game.isCaught);
+  const trainerSanity = useAppSelector((state) => state.game.trainerSanity);
+  const pokemonHunger = useAppSelector((state) => state.game.pokemonHunger);
+  const isDisoriented = useAppSelector((state) => state.game.isDisoriented);
+  const catchAttemptResult = useAppSelector((state) => state.game.catchAttemptResult);
 
-  const players = useNetworkStore((state) => state.players);
+  const players = useAppSelector((state) => state.network.players);
 
   useEffect(() => {
     if (!catchAttemptResult) {
       return;
     }
     const timer = window.setTimeout(() => {
-      clearCatchAttemptResult();
+      dispatch(gameActions.clearCatchAttemptResult());
     }, 2000);
     return () => window.clearTimeout(timer);
-  }, [catchAttemptResult, clearCatchAttemptResult]);
+  }, [catchAttemptResult, dispatch]);
 
   const caughtEntries = useMemo(() => {
     const entries: { name: string; color: string }[] = [];
     for (const id of caughtPokemon) {
-      const player = players.get(id);
+      const player = players[id];
       if (player) {
         const specName = player.species?.name ?? 'Unknown';
         entries.push({
@@ -68,7 +67,7 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
 
   const uncaughtPokemonCount = useMemo(() => {
     let total = 0;
-    for (const player of players.values()) {
+    for (const player of Object.values(players)) {
       if (player.role === 'pokemon' && !player.isCaught) {
         total += 1;
       }
@@ -153,7 +152,7 @@ export default function HUD({ pointerLocked }: { pointerLocked: boolean }) {
             </div>
           ) : null}
 
-          <div className="hud-camera-mode" onClick={() => toggleCameraMode()} style={{
+          <div className="hud-camera-mode" onClick={() => dispatch(gameActions.toggleCameraMode())} style={{
             position: 'fixed', bottom: '20px', left: '20px',
             background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '8px 16px',
             borderRadius: '8px', cursor: 'pointer', fontSize: '14px',

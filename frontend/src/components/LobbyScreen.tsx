@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { gameActions } from '../stores/gameSlice';
+import {
+  addBot,
+  connectChannelLobby,
+  connectLobby,
+  createRoom,
+  disconnect,
+  disconnectChannelLobby,
+  disconnectLobby,
+  joinRoom,
+  removeBot,
+  sendChat,
+  sendPokeballCount,
+  sendReady,
+  sendRoleSelect,
+  sendSpeciesSelect,
+  startGame,
+} from '../stores/networkSlice';
+import { useAppDispatch, useAppSelector } from '../stores/hooks';
 import PokemonSelect from './PokemonSelect';
 import LobbyBackground3D from './LobbyBackground3D';
+import RolePreview3D from './RolePreview3D';
 import type { PokemonSpecies } from '../types/game';
 
 const CHANNELS = [
@@ -13,40 +31,29 @@ const CHANNELS = [
 ];
 
 const MAX_PLAYER_OPTS = [4, 6, 8, 10, 12];
+const POKEBALL_OPTIONS = [5, 10, 15, 20, 25, 30];
 
 export default function LobbyScreen() {
-  const phase = useGameStore((s) => s.phase);
-  const selectedSpecies = useGameStore((s) => s.selectedSpecies);
-  const selectSpecies = useGameStore((s) => s.selectSpecies);
+  const dispatch = useAppDispatch();
+  const phase = useAppSelector((s) => s.game.phase);
+  const selectedSpecies = useAppSelector((s) => s.game.selectedSpecies);
+  const pokeballs = useAppSelector((s) => s.game.pokeballs);
 
-  const roomCode = useNetworkStore((s) => s.roomCode);
-  const playerId = useNetworkStore((s) => s.playerId);
-  const players = useNetworkStore((s) => s.players);
-  const isConnected = useNetworkStore((s) => s.isConnected);
-  const isHost = useNetworkStore((s) => s.isHost);
-  const chat = useNetworkStore((s) => s.chat);
-  const disconnect = useNetworkStore((s) => s.disconnect);
-  const sendReady = useNetworkStore((s) => s.sendReady);
-  const sendSpeciesSelect = useNetworkStore((s) => s.sendSpeciesSelect);
-  const sendRoleSelect = useNetworkStore((s) => s.sendRoleSelect);
-  const sendChat = useNetworkStore((s) => s.sendChat);
-  const startGame = useNetworkStore((s) => s.startGame);
+  const roomCode = useAppSelector((s) => s.network.roomCode);
+  const playerId = useAppSelector((s) => s.network.playerId);
+  const players = useAppSelector((s) => s.network.players);
+  const isConnected = useAppSelector((s) => s.network.isConnected);
+  const isHost = useAppSelector((s) => s.network.isHost);
+  const chat = useAppSelector((s) => s.network.chat);
 
-  const channel = useNetworkStore((s) => s.channel);
-  const rooms = useNetworkStore((s) => s.rooms);
-  const connectLobby = useNetworkStore((s) => s.connectLobby);
-  const disconnectLobby = useNetworkStore((s) => s.disconnectLobby);
-  const createRoom = useNetworkStore((s) => s.createRoom);
-  const joinRoom = useNetworkStore((s) => s.joinRoom);
-  const addBot = useNetworkStore((s) => s.addBot);
-  const removeBot = useNetworkStore((s) => s.removeBot);
-  const channelCounts = useNetworkStore((s) => s.channelCounts);
-  const connectChannelLobby = useNetworkStore((s) => s.connectChannelLobby);
-  const disconnectChannelLobby = useNetworkStore((s) => s.disconnectChannelLobby);
+  const channel = useAppSelector((s) => s.network.channel);
+  const rooms = useAppSelector((s) => s.network.rooms);
+  const channelCounts = useAppSelector((s) => s.network.channelCounts);
 
   const [name, setName] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [ready, setReady] = useState(false);
+  const [pokeballCount, setPokeballCountLocal] = useState(pokeballs);
   const [view, setView] = useState<'main' | 'nickname' | 'channels' | 'rooms'>('main');
 
   // Create room modal
@@ -60,31 +67,43 @@ export default function LobbyScreen() {
   const [pwPrompt, setPwPrompt] = useState<{ roomCode: string; show: boolean }>({ roomCode: '', show: false });
   const [pwInput, setPwInput] = useState('');
 
-  const localPlayer = players.get(playerId);
+  const localPlayer = players[playerId];
   const localRole = localPlayer?.role ?? 'pokemon';
-  const connectedPlayers = useMemo(() => [...players.values()], [players]);
+  const connectedPlayers = useMemo(() => Object.values(players), [players]);
 
   // Auto-connect/disconnect channel lobby WS when on channels view
   useEffect(() => {
     if (view === 'channels' && !isConnected) {
-      connectChannelLobby();
-      return () => disconnectChannelLobby();
+      dispatch(connectChannelLobby());
+      return () => {
+        dispatch(disconnectChannelLobby());
+      };
     }
-  }, [view, isConnected, connectChannelLobby, disconnectChannelLobby]);
+  }, [dispatch, isConnected, view]);
+
+  useEffect(() => {
+    setPokeballCountLocal(pokeballs);
+  }, [pokeballs]);
 
   const handleToggleReady = () => {
     const next = !ready;
     setReady(next);
-    sendReady(next);
+    dispatch(sendReady(next));
   };
 
   const handleSelectSpecies = (species: PokemonSpecies) => {
-    selectSpecies(species);
-    sendSpeciesSelect(species.name);
+    dispatch(gameActions.selectSpecies(species));
+    dispatch(sendSpeciesSelect(species.name));
+  };
+
+  const handleSelectPokeballCount = (count: number) => {
+    setPokeballCountLocal(count);
+    dispatch(gameActions.setPokeballCount(count));
+    dispatch(sendPokeballCount(count));
   };
 
   const handleSelectChannel = (ch: number) => {
-    connectLobby(ch);
+    dispatch(connectLobby(ch));
     setView('rooms');
   };
 
@@ -97,7 +116,7 @@ export default function LobbyScreen() {
   };
 
   const handleBackToChannels = () => {
-    disconnectLobby();
+    dispatch(disconnectLobby());
     setView('channels');
   };
 
@@ -106,12 +125,12 @@ export default function LobbyScreen() {
       setPwPrompt({ roomCode: room.roomCode, show: true });
       setPwInput('');
     } else {
-      joinRoom(room.roomCode, name || '트레이너');
+      dispatch(joinRoom(room.roomCode, name || '트레이너'));
     }
   };
 
   const handlePwSubmit = () => {
-    joinRoom(pwPrompt.roomCode, name || '트레이너', pwInput);
+    dispatch(joinRoom(pwPrompt.roomCode, name || '트레이너', pwInput));
     setPwPrompt({ roomCode: '', show: false });
     setPwInput('');
   };
@@ -125,14 +144,14 @@ export default function LobbyScreen() {
       alert('비밀방 설정을 해주세요.');
       return;
     }
-    createRoom({
+    dispatch(createRoom({
       roomName: newRoomName || '포켓몬 숨바꼭질',
       password: newRoomPw || undefined,
       maxPlayers: newMaxPlayers,
       mapId: 'nature',
       channel,
       playerName: name || '트레이너',
-    });
+    }));
     setShowCreateModal(false);
     setNewRoomName('포켓몬 숨바꼭질');
     setNewRoomPw('');
@@ -432,7 +451,7 @@ export default function LobbyScreen() {
                         <button
                           type="button"
                           className="bot-remove-btn"
-                          onClick={() => removeBot(player.id)}
+                          onClick={() => dispatch(removeBot(player.id))}
                         >
                           제거
                         </button>
@@ -447,7 +466,7 @@ export default function LobbyScreen() {
               </div>
             </div>
             {isHost && (
-              <button type="button" className="bot-add-btn" onClick={addBot}>
+              <button type="button" className="bot-add-btn" onClick={() => dispatch(addBot())}>
                 🤖 봇 추가
               </button>
             )}
@@ -456,11 +475,11 @@ export default function LobbyScreen() {
                 {ready ? '준비 취소' : '준비 완료'}
               </button>
               {isHost && (
-                <button type="button" className="btn-start-game" onClick={startGame}>
+                <button type="button" className="btn-start-game" onClick={() => dispatch(startGame())}>
                   게임 시작
                 </button>
               )}
-              <button type="button" className="btn-leave" onClick={disconnect}>
+              <button type="button" className="btn-leave" onClick={() => dispatch(disconnect())}>
                 나가기
               </button>
             </div>
@@ -473,14 +492,14 @@ export default function LobbyScreen() {
                 <button
                   type="button"
                   className={`role-select-btn ${localRole === 'trainer' ? 'active' : ''}`}
-                  onClick={() => sendRoleSelect('trainer')}
+                  onClick={() => dispatch(sendRoleSelect('trainer'))}
                 >
                   트레이너 (잡는 사람)
                 </button>
                 <button
                   type="button"
                   className={`role-select-btn ${localRole === 'pokemon' ? 'active' : ''}`}
-                  onClick={() => sendRoleSelect('pokemon')}
+                  onClick={() => dispatch(sendRoleSelect('pokemon'))}
                 >
                   포켓몬 (숨는 사람)
                 </button>
@@ -489,12 +508,28 @@ export default function LobbyScreen() {
               {localRole === 'pokemon' ? (
                 <>
                   <h2>포켓몬 선택</h2>
+                  <RolePreview3D role="pokemon" speciesName={selectedSpecies?.name} />
                   <PokemonSelect selectedSpecies={selectedSpecies} onSelect={handleSelectSpecies} />
                 </>
               ) : (
                 <div className="trainer-status">
-                  <span className="trainer-status-icon">⚡</span>
+                  <RolePreview3D role="trainer" />
                   <span>당신은 <strong>트레이너</strong>입니다.<br />몬스터볼을 던져 포켓몬을 잡으세요!</span>
+                  <div className="trainer-pokeball-row">
+                    <span className="trainer-pokeball-label">시작 몬스터볼</span>
+                    <div className="trainer-pokeball-options">
+                      {POKEBALL_OPTIONS.map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          className={`modal-maxplayer-btn ${pokeballCount === count ? 'active' : ''}`}
+                          onClick={() => handleSelectPokeballCount(count)}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -515,7 +550,7 @@ export default function LobbyScreen() {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      sendChat(chatInput);
+                      dispatch(sendChat(chatInput));
                       setChatInput('');
                     }
                   }}
@@ -524,7 +559,7 @@ export default function LobbyScreen() {
                   type="button"
                   className="chat-send-btn"
                   onClick={() => {
-                    sendChat(chatInput);
+                    dispatch(sendChat(chatInput));
                     setChatInput('');
                   }}
                 >

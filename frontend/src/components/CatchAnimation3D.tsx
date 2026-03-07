@@ -3,8 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { gameActions, registerEscapeWithTimeout } from '../stores/gameSlice';
+import { useAppDispatch, useAppSelector } from '../stores/hooks';
 import { soundManager } from '../systems/sound';
 import type { CatchAnimData, CatchResultPayload } from '../types/game';
 
@@ -54,21 +54,15 @@ const PHASE_FALLBACK_DURATION: Record<AnimPhase, number> = {
 };
 
 export default function CatchAnimation3D() {
-  const catchAnim = useGameStore((s) => s.catchAnim);
+  const catchAnim = useAppSelector((s) => s.game.catchAnim);
   if (!catchAnim) return null;
   return <CatchSequence key={catchAnim.id} data={catchAnim} />;
 }
 
 function CatchSequence({ data }: { data: CatchAnimData }) {
-  const playerId = useNetworkStore((s) => s.playerId);
-  const pendingCatchResult = useGameStore((s) => s.pendingCatchResult);
-  const clearCatchAnim = useGameStore((s) => s.clearCatchAnim);
-  const clearCatchAttemptResult = useGameStore((s) => s.clearCatchAttemptResult);
-  const clearPendingCatchResult = useGameStore((s) => s.clearPendingCatchResult);
-  const setCatchAnimPhase = useGameStore((s) => s.setCatchAnimPhase);
-  const registerCatch = useGameStore((s) => s.registerCatch);
-  const registerEscape = useGameStore((s) => s.registerEscape);
-  const setCaught = useGameStore((s) => s.setCaught);
+  const dispatch = useAppDispatch();
+  const playerId = useAppSelector((s) => s.network.playerId);
+  const pendingCatchResult = useAppSelector((s) => s.game.pendingCatchResult);
 
   const openCloseGLB = useGLTF(POKEBALL_MODELS.openClose);
   const throwGLB = useGLTF(POKEBALL_MODELS.throw);
@@ -273,24 +267,24 @@ function CatchSequence({ data }: { data: CatchAnimData }) {
 
       appliedResultRef.current = result;
       resultStartRef.current = elapsedNow;
-      setCatchAnimPhase('result');
+      dispatch(gameActions.setCatchAnimPhase('result'));
 
       if (result.result === 'caught') {
         soundManager.play('catch_success');
-        registerCatch(result.pokemonId, result.pokemonName);
+        dispatch(gameActions.registerCatch({ pokemonId: result.pokemonId, pokemonName: result.pokemonName }));
         if (result.pokemonId === playerId) {
-          setCaught(true);
+          dispatch(gameActions.setCaught(true));
         }
         playPhase('success', elapsedNow);
       } else {
         soundManager.play('catch_fail');
-        registerEscape(result.pokemonName);
+        dispatch(registerEscapeWithTimeout(result.pokemonName));
         playPhase('fail', elapsedNow);
       }
 
       cleanupAtRef.current = elapsedNow + phaseDurationRef.current + T.CLEANUP_AFTER;
     },
-    [playPhase, playerId, registerCatch, registerEscape, setCatchAnimPhase, setCaught],
+    [dispatch, playPhase, playerId],
   );
 
   useEffect(() => {
@@ -582,15 +576,15 @@ function CatchSequence({ data }: { data: CatchAnimData }) {
     }
 
     if (appliedResultRef.current && cleanupAtRef.current !== null && elapsed >= cleanupAtRef.current) {
-      clearCatchAnim();
-      clearCatchAttemptResult();
-      clearPendingCatchResult();
+      dispatch(gameActions.clearCatchAnim());
+      dispatch(gameActions.clearCatchAttemptResult());
+      dispatch(gameActions.clearPendingCatchResult());
     }
 
     if (elapsed >= T.SAFETY_TIMEOUT) {
-      clearCatchAnim();
-      clearCatchAttemptResult();
-      clearPendingCatchResult();
+      dispatch(gameActions.clearCatchAnim());
+      dispatch(gameActions.clearCatchAttemptResult());
+      dispatch(gameActions.clearPendingCatchResult());
     }
   });
 

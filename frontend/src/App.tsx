@@ -5,21 +5,21 @@ import HUD from './components/HUD';
 import LobbyScreen from './components/LobbyScreen';
 import ResultScreen from './components/ResultScreen';
 import { useKeyboard } from './hooks/useKeyboard';
-import { useGameStore } from './stores/gameStore';
+import { useAppDispatch, useAppSelector } from './stores/hooks';
+import { gameActions } from './stores/gameSlice';
 import { soundManager } from './systems/sound';
 
 function App() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const keysRef = useKeyboard();
   const [pointerLocked, setPointerLocked] = useState(false);
+  const dispatch = useAppDispatch();
 
-  const phase = useGameStore((state) => state.phase);
-  const timeLeft = useGameStore((state) => state.timeLeft);
-  const prepTime = useGameStore((state) => state.prepTime);
-  const huntTime = useGameStore((state) => state.huntTime);
-  const setPhase = useGameStore((state) => state.setPhase);
-  const setTimeLeft = useGameStore((state) => state.setTimeLeft);
-  const tickTimer = useGameStore((state) => state.tickTimer);
+  const phase = useAppSelector((state) => state.game.phase);
+  const timeLeft = useAppSelector((state) => state.game.timeLeft);
+  const prepTime = useAppSelector((state) => state.game.prepTime);
+  const huntTime = useAppSelector((state) => state.game.huntTime);
+  const isDisoriented = useAppSelector((state) => state.game.isDisoriented);
 
   useEffect(() => {
     const onPointerLockChange = () => {
@@ -39,36 +39,35 @@ function App() {
       return;
     }
     const timer = window.setInterval(() => {
-      tickTimer();
+      dispatch(gameActions.tickTimer());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [phase, tickTimer]);
+  }, [dispatch, phase]);
 
   useEffect(() => {
     if (phase !== 'hunting') {
       return;
     }
     const timer = window.setInterval(() => {
-      const state = useGameStore.getState();
-      if (state.isDisoriented) {
-        state.tickDisoriented(1);
+      if (isDisoriented) {
+        dispatch(gameActions.tickDisoriented(1));
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [phase]);
+  }, [dispatch, isDisoriented, phase]);
 
   useEffect(() => {
     if (phase === 'preparing' && timeLeft <= 0) {
-      setPhase('hunting');
-      setTimeLeft(huntTime);
+      dispatch(gameActions.setPhase('hunting'));
+      dispatch(gameActions.setTimeLeft(huntTime));
       soundManager.play('round_start');
       return;
     }
     if (phase === 'hunting' && timeLeft <= 0) {
-      setPhase('ended');
+      dispatch(gameActions.setPhase('ended'));
       soundManager.play('round_end');
     }
-  }, [huntTime, phase, setPhase, setTimeLeft, timeLeft]);
+  }, [dispatch, huntTime, phase, timeLeft]);
 
   useEffect(() => {
     if (phase === 'preparing' || phase === 'hunting') {
@@ -90,9 +89,9 @@ function App() {
   };
 
   const restartRound = () => {
-    setPhase('preparing');
-    setTimeLeft(prepTime);
-    useGameStore.getState().resetRound();
+    dispatch(gameActions.setPhase('preparing'));
+    dispatch(gameActions.setTimeLeft(prepTime));
+    dispatch(gameActions.resetRound());
   };
 
   return (

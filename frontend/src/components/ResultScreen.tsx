@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { useAppSelector } from '../stores/hooks';
 
 const KOREAN_NAMES: Record<string, string> = {
   Bulbasaur: '이상해씨', Ivysaur: '이상해풀', Venusaur: '이상해꽃',
@@ -20,15 +19,15 @@ interface ResultScreenProps {
 }
 
 export default function ResultScreen({ onPlayAgain, onReturnToLobby }: ResultScreenProps) {
-  const role = useGameStore((state) => state.role);
-  const caughtPokemon = useGameStore((state) => state.caughtPokemon);
-  const pokeballs = useGameStore((state) => state.pokeballs);
-  const isCaught = useGameStore((state) => state.isCaught);
-  const selectedSpecies = useGameStore((state) => state.selectedSpecies);
+  const role = useAppSelector((state) => state.game.role);
+  const caughtPokemon = useAppSelector((state) => state.game.caughtPokemon);
+  const pokeballs = useAppSelector((state) => state.game.pokeballs);
+  const isCaught = useAppSelector((state) => state.game.isCaught);
+  const selectedSpecies = useAppSelector((state) => state.game.selectedSpecies);
 
-  const players = useNetworkStore((state) => state.players);
+  const players = useAppSelector((state) => state.network.players);
 
-  const allPlayers = useMemo(() => [...players.values()], [players]);
+  const allPlayers = useMemo(() => Object.values(players), [players]);
   const totalPokemon = useMemo(() => allPlayers.filter((p) => p.role === 'pokemon').length, [allPlayers]);
   const caughtCount = caughtPokemon.length;
   const allCaught = totalPokemon > 0 && caughtCount >= totalPokemon;
@@ -51,7 +50,7 @@ export default function ResultScreen({ onPlayAgain, onReturnToLobby }: ResultScr
   const caughtList = useMemo(() => {
     const names: { name: string; krName: string; playerName: string; color: string }[] = [];
     for (const id of caughtPokemon) {
-      const player = players.get(id);
+      const player = players[id];
       if (player) {
         const specName = player.species?.name ?? 'Unknown';
         names.push({

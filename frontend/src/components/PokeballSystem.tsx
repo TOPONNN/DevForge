@@ -4,8 +4,9 @@ import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapi
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
+import { gameActions, releaseThrow, setChargePower, startCharge } from '../stores/gameSlice';
+import { useAppDispatch, useAppSelector } from '../stores/hooks';
+import { sendCatchAttempt, sendThrow } from '../stores/networkSlice';
 import { soundManager } from '../systems/sound';
 import type { ActivePokeball, ThrowData } from '../types/game';
 
@@ -30,9 +31,8 @@ function PokeballGLBMesh() {
 }
 
 function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
+  const dispatch = useAppDispatch();
   const bodyRef = useRef<RapierRigidBody | null>(null);
-  const removePokeball = useGameStore((state) => state.removePokeball);
-  const updatePokeballPosition = useGameStore((state) => state.updatePokeballPosition);
   const hasGroundHitRef = useRef(false);
   const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,10 +43,12 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
     }
     const position = body.translation();
     const velocity = body.linvel();
-    updatePokeballPosition(
-      ball.id,
-      [position.x, position.y, position.z],
-      [velocity.x, velocity.y, velocity.z],
+    dispatch(
+      gameActions.updatePokeballPosition({
+        id: ball.id,
+        position: [position.x, position.y, position.z],
+        velocity: [velocity.x, velocity.y, velocity.z],
+      }),
     );
 
     // First ground contact — bounce + start rolling (stay 'flying' for catch detection)
@@ -65,7 +67,7 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
       body.setAngularDamping(3.0);
 
       // Remove after 3s if not caught
-      removeTimerRef.current = window.setTimeout(() => removePokeball(ball.id), 3000);
+      removeTimerRef.current = window.setTimeout(() => dispatch(gameActions.removePokeball(ball.id)), 3000);
     }
 
     // Clamp Y so ball doesn't clip through ground while rolling
@@ -78,7 +80,7 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
     }
 
     if (position.y < -5) {
-      removePokeball(ball.id);
+      dispatch(gameActions.removePokeball(ball.id));
     }
   });
 
@@ -112,26 +114,19 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
 }
 
 export default function PokeballSystem({ pointerLocked }: { pointerLocked: boolean }) {
+  const dispatch = useAppDispatch();
   const { camera } = useThree();
 
-  const role = useGameStore((state) => state.role);
-  const phase = useGameStore((state) => state.phase);
-  const cameraMode = useGameStore((state) => state.cameraMode);
-  const localPosition = useGameStore((state) => state.localPosition);
-  const throwPower = useGameStore((state) => state.throwPower);
-  const isCharging = useGameStore((state) => state.isCharging);
-  const activePokeballs = useGameStore((state) => state.activePokeballs);
-  const startCharge = useGameStore((state) => state.startCharge);
-  const setChargePower = useGameStore((state) => state.setChargePower);
-  const releaseThrow = useGameStore((state) => state.releaseThrow);
-  const setPokeballState = useGameStore((state) => state.setPokeballState);
-  const startCatchAnim = useGameStore((state) => state.startCatchAnim);
-  const removePokeball = useGameStore((state) => state.removePokeball);
+  const role = useAppSelector((state) => state.game.role);
+  const phase = useAppSelector((state) => state.game.phase);
+  const cameraMode = useAppSelector((state) => state.game.cameraMode);
+  const localPosition = useAppSelector((state) => state.game.localPosition);
+  const throwPower = useAppSelector((state) => state.game.throwPower);
+  const isCharging = useAppSelector((state) => state.game.isCharging);
+  const activePokeballs = useAppSelector((state) => state.game.activePokeballs);
 
-  const playerId = useNetworkStore((state) => state.playerId);
-  const players = useNetworkStore((state) => state.players);
-  const sendThrow = useNetworkStore((state) => state.sendThrow);
-  const sendCatchAttempt = useNetworkStore((state) => state.sendCatchAttempt);
+  const playerId = useAppSelector((state) => state.network.playerId);
+  const players = useAppSelector((state) => state.network.players);
 
   const chargingSinceRef = useRef(0);
   const attemptedBallsRef = useRef<Set<string>>(new Set());
@@ -141,7 +136,7 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
         return;
       }
       chargingSinceRef.current = performance.now();
-      startCharge();
+      dispatch(startCharge());
     };
 
     const onMouseUp = (event: MouseEvent) => {
@@ -178,10 +173,10 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
         direction: [direction.x, direction.y, direction.z],
         power: throwPower,
       };
-      const created = releaseThrow(throwData, playerId || 'local-trainer');
+      const created = dispatch(releaseThrow(throwData, playerId || 'local-trainer'));
       if (created) {
         soundManager.play('pokeball_throw');
-        sendThrow(throwData);
+        dispatch(sendThrow(throwData));
       }
     };
 
@@ -198,17 +193,15 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
     phase,
     playerId,
     pointerLocked,
-    releaseThrow,
+    dispatch,
     role,
-    sendThrow,
-    startCharge,
     throwPower,
   ]);
 
   useFrame(() => {
     if (isCharging) {
       const elapsed = (performance.now() - chargingSinceRef.current) / 1500;
-      setChargePower(elapsed);
+      dispatch(setChargePower(elapsed));
     }
 
     if (role !== 'trainer') {
@@ -219,7 +212,7 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
       if (ball.state !== 'flying' || attemptedBallsRef.current.has(ball.id)) {
         continue;
       }
-      for (const remotePlayer of players.values()) {
+      for (const remotePlayer of Object.values(players)) {
         if (remotePlayer.id === playerId || remotePlayer.role !== 'pokemon' || remotePlayer.isCaught) {
           continue;
         }
@@ -230,16 +223,17 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
         if (dx * dx + dy * dy + dz * dz <= hitRadius * hitRadius) {
           attemptedBallsRef.current.add(ball.id);
           soundManager.play('catch_wiggle');
-          // Start 3D catch animation & remove original ball
-          startCatchAnim(ball.position, remotePlayer.position, remotePlayer.id);
-          setPokeballState(ball.id, 'wiggling');
-          removePokeball(ball.id);
-          sendCatchAttempt({
+          dispatch(
+            gameActions.startCatchAnim({ ballPos: ball.position, pokemonPos: remotePlayer.position, pokemonId: remotePlayer.id }),
+          );
+          dispatch(gameActions.setPokeballState({ id: ball.id, state: 'wiggling' }));
+          dispatch(gameActions.removePokeball(ball.id));
+          dispatch(sendCatchAttempt({
             origin: ball.position,
             direction: ball.velocity,
             power: throwPower,
             pokemonTarget: remotePlayer.id,
-          });
+          }));
           window.setTimeout(() => {
             attemptedBallsRef.current.delete(ball.id);
           }, 5000);

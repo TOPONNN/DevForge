@@ -6,9 +6,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useKeyboard } from '../hooks/useKeyboard';
-import { useGameStore } from '../stores/gameStore';
-import { useNetworkStore } from '../stores/networkStore';
-import type { RemotePlayer } from '../types/game';
+import { useAppSelector } from '../stores/hooks';
+import type { PokemonSpecies, RemotePlayer } from '../types/game';
 import CatchAnimation from './CatchAnimation';
 import GameMap from './GameMap';
 import Player from './Player';
@@ -101,7 +100,18 @@ function useIsMoving(position: [number, number, number]): boolean {
   return isMovingRef.current;
 }
 
-function RemotePlayerPokemon({ player }: { player: { id: string; name: string; species: any; position: [number, number, number]; rotation: [number, number, number]; isCaught: boolean } }) {
+function RemotePlayerPokemon({
+  player,
+}: {
+  player: {
+    id: string;
+    name: string;
+    species: PokemonSpecies;
+    position: [number, number, number];
+    rotation: [number, number, number];
+    isCaught: boolean;
+  };
+}) {
   const isMoving = useIsMoving(player.position);
 
   return (
@@ -122,7 +132,7 @@ function RemotePlayerPokemon({ player }: { player: { id: string; name: string; s
 
 function RemoteTrainer({ player }: { player: RemotePlayer }) {
   const isMoving = useIsMoving(player.position);
-  const activePokeballs = useGameStore((state) => state.activePokeballs);
+  const activePokeballs = useAppSelector((state) => state.game.activePokeballs);
   const { scene, animations } = useGLTF('/models/ash_ketchum.glb');
 
   const { clonedScene, normalizedScale, minY, center, clipsByName } = useMemo(() => {
@@ -197,8 +207,6 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   const prevBallIdsRef = useRef<Set<string>>(new Set());
   const animReadyRef = useRef(false);
   const outerGroupRef = useRef<THREE.Group>(null);
-  const measureCountRef = useRef(0);
-  const groundCorrectionRef = useRef(0);
 
   const applyLocomotion = (moving: boolean) => {
     const walkAction = walkActionRef.current;
@@ -324,27 +332,6 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
       outerGroupRef.current.visible = true;
     }
 
-    // Multi-frame ground correction: sample every 10 frames for 3 seconds
-    if (outerGroupRef.current && animReadyRef.current && measureCountRef.current < 180) {
-      measureCountRef.current++;
-      if (measureCountRef.current % 10 === 0) {
-        outerGroupRef.current.updateMatrixWorld(true);
-        const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
-        const needed = -worldBox.min.y;
-        if (Math.abs(needed) > Math.abs(groundCorrectionRef.current) + 0.01) {
-          groundCorrectionRef.current = needed;
-        }
-      }
-    }
-
-    // Apply ground correction to inner group
-    if (outerGroupRef.current && groundCorrectionRef.current !== 0) {
-      const innerGroup = outerGroupRef.current.children[0] as THREE.Group;
-      if (innerGroup) {
-        innerGroup.position.y = -(0.45 + 0.35) + groundCorrectionRef.current;
-      }
-    }
-
     if (!isThrowingRef.current) {
       return;
     }
@@ -376,16 +363,28 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
 }
 
 function RemotePlayers() {
-  const playerId = useNetworkStore((state) => state.playerId);
-  const players = useNetworkStore((state) => state.players);
+  const playerId = useAppSelector((state) => state.network.playerId);
+  const players = useAppSelector((state) => state.network.players);
 
   return (
     <group>
-      {[...players.values()]
+      {Object.values(players)
         .filter((player) => player.id !== playerId)
         .map((player) => {
           if (player.role === 'pokemon' && player.species) {
-            return <RemotePlayerPokemon key={player.id} player={player as any} />;
+            return (
+              <RemotePlayerPokemon
+                key={player.id}
+                player={{
+                  id: player.id,
+                  name: player.name,
+                  species: player.species,
+                  position: player.position,
+                  rotation: player.rotation,
+                  isCaught: player.isCaught,
+                }}
+              />
+            );
           }
           return <RemoteTrainer key={player.id} player={player} />;
         })}
@@ -395,8 +394,8 @@ function RemotePlayers() {
 
 export default function GameScene({ keysRef, pointerLocked }: GameSceneProps) {
   const showFps = false;
-  const phase = useGameStore((state) => state.phase);
-  const isDisoriented = useGameStore((state) => state.isDisoriented);
+  const phase = useAppSelector((state) => state.game.phase);
+  const isDisoriented = useAppSelector((state) => state.game.isDisoriented);
 
   if (phase === 'lobby' || phase === 'selecting') {
     return null;

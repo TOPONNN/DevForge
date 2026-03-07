@@ -1,11 +1,11 @@
-import { useNetworkStore } from '../stores/networkStore';
+import { useAppSelector } from '../stores/hooks';
 import PokemonCharacter from './PokemonCharacter';
 
 export default function RemotePlayers() {
-  const players = useNetworkStore((state) => state.players);
-  const localId = useNetworkStore((state) => state.playerId);
+  const players = useAppSelector((state) => state.network.players);
+  const localId = useAppSelector((state) => state.network.playerId);
 
-  const remotePokemon = [...players.values()].filter(
+  const remotePokemon = Object.values(players).filter(
     (p) => p.id !== localId && p.role === 'pokemon' && !p.isCaught,
   );
 

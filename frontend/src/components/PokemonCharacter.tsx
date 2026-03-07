@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
-import { useGameStore } from '../stores/gameStore';
+import { useAppSelector } from '../stores/hooks';
 import type { PokemonSpecies, RotationTuple, Vector3Tuple } from '../types/game';
 
 const MODEL_MAP: Record<string, string> = {
@@ -66,7 +66,7 @@ export function getGroundOffset(speciesName: string): number {
 }
 
 // Verified against actual GLB animation clip names (parsed from binary GLTF data)
-const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
+export const ANIMATION_MAP: Record<string, { idle: string; walk: string; run?: string }> = {
   Bulbasaur: { idle: 'waitA01', walk: 'walk01' },
   Ivysaur: { idle: 'defaultwait01_loop', walk: 'walk01_loop', run: 'run01_loop' },
   Venusaur: { idle: 'waitA01', walk: 'walk01' },
@@ -331,7 +331,7 @@ export default function PokemonCharacter({
   invulnerable,
   isCaught,
 }: PokemonCharacterProps) {
-  const catchAnim = useGameStore((state) => state.catchAnim);
+  const catchAnim = useAppSelector((state) => state.game.catchAnim);
   const isBeingCaught = catchAnim?.pokemonId === id;
   const groupRef = useRef<THREE.Group | null>(null);
   const bodyRef = useRef<THREE.Group | null>(null);

@@ -1,9 +1,9 @@
-import { useGameStore } from '../stores/gameStore';
+import { useAppSelector } from '../stores/hooks';
 
 export default function Crosshair({ pointerLocked }: { pointerLocked: boolean }) {
-  const role = useGameStore((state) => state.role);
-  const isCharging = useGameStore((state) => state.isCharging);
-  const throwPower = useGameStore((state) => state.throwPower);
+  const role = useAppSelector((state) => state.game.role);
+  const isCharging = useAppSelector((state) => state.game.isCharging);
+  const throwPower = useAppSelector((state) => state.game.throwPower);
 
   if (role !== 'trainer') {
     return null;

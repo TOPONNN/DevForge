@@ -1,15 +1,15 @@
 import { Html } from '@react-three/drei';
 import { useEffect, useMemo, useState } from 'react';
-import { useGameStore } from '../stores/gameStore';
+import { useAppSelector } from '../stores/hooks';
 
 /**
  * Text-only overlay for catch result messages.
  * The 3D pokeball animation is handled by CatchAnimation3D.
  */
 export default function CatchAnimation() {
-  const catchAttemptResult = useGameStore((state) => state.catchAttemptResult);
-  const catchAnimPhase = useGameStore((state) => state.catchAnimPhase);
-  const catchAnim = useGameStore((state) => state.catchAnim);
+  const catchAttemptResult = useAppSelector((state) => state.game.catchAttemptResult);
+  const catchAnimPhase = useAppSelector((state) => state.game.catchAnimPhase);
+  const catchAnim = useAppSelector((state) => state.game.catchAnim);
 
   const [visible, setVisible] = useState(false);
 
