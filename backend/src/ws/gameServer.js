@@ -115,6 +115,7 @@ function toPlayerPayload(player, room) {
     id: player.id,
     name: player.name,
     role: player.role,
+    pokeballs: Number.isFinite(player.pokeballs) ? player.pokeballs : 10,
     position: player.position,
     rotation: player.rotation,
     species: player.species,
@@ -376,6 +377,7 @@ function addPlayerToRoom(ws, room, playerName) {
     id: ws.clientId,
     name: String(playerName || 'Trainer').slice(0, 20),
     role,
+    pokeballs: 10,
     position: getSpawnPosition(role),
     rotation: [0, 0, 0],
     species: role === 'pokemon' ? { name: 'Bulbasaur', ...speciesStats.Bulbasaur } : undefined,
@@ -639,6 +641,27 @@ function handleSelectRole(ws, data) {
   emitRoomState(room);
 }
 
+function handlePokeballCount(ws, data) {
+  const room = rooms.get(ws.roomCode);
+  if (!room || room.phase !== 'lobby') {
+    return;
+  }
+
+  const player = room.players.get(ws.clientId);
+  if (!player || player.role !== 'trainer') {
+    return;
+  }
+
+  const allowedCounts = new Set([5, 10, 15, 20, 25, 30]);
+  const parsedCount = Number(data.count);
+  if (!Number.isInteger(parsedCount) || !allowedCounts.has(parsedCount)) {
+    return;
+  }
+
+  player.pokeballs = parsedCount;
+  emitRoomState(room);
+}
+
 function handlePosition(ws, data) {
   const room = rooms.get(ws.roomCode);
   if (!room) {
@@ -790,6 +813,9 @@ function setupGameServer(server) {
         break;
       case 'select_role':
         handleSelectRole(ws, data);
+        break;
+      case 'pokeball_count':
+        handlePokeballCount(ws, data);
         break;
       case 'start_game':
         handleStartGame(ws);

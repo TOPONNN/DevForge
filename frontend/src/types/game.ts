@@ -32,6 +32,7 @@ export interface Player {
   id: string;
   name: string;
   role: PlayerRole;
+  pokeballs?: number;
   position: Vector3Tuple;
   rotation: RotationTuple;
   species?: PokemonSpecies;
@@ -122,6 +123,7 @@ export type NetworkMessage =
   | { type: 'phase_change'; data: { phase: GamePhase; timer: number } }
   | { type: 'chat'; data: ChatMessage }
   | { type: 'species_select'; data: { speciesName: string } }
+  | { type: 'pokeball_count'; data: { count: number } }
   | { type: 'start_game'; data: Record<string, never> }
   | { type: 'joined'; data: { playerId: string; roomCode: string; isHost: boolean } }
   | { type: 'room_state'; data: RoomStatePayload }
