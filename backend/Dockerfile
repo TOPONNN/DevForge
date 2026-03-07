@@ -1,13 +1,7 @@
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
-COPY gradle gradle
-COPY gradlew build.gradle settings.gradle ./
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
+COPY package.json package-lock.json ./
+RUN npm ci --production
 COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
-
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY --from=builder /app/build/libs/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["node", "src/index.js"]

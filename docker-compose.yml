@@ -11,7 +11,6 @@ services:
     depends_on:
       - frontend
       - backend
-      - ws-server
     networks:
       - pokemon-net
 
@@ -26,11 +25,10 @@ services:
       - "80"
     depends_on:
       - backend
-      - ws-server
     networks:
       - pokemon-net
 
-  # ── Spring Boot Backend API ──
+  # ── Express.js Backend (REST API + WebSocket Game Server) ──
   backend:
     build:
       context: ./backend
@@ -47,25 +45,14 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/pokemon_prophunt?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-      SPRING_DATASOURCE_USERNAME: pokemon
-      SPRING_DATASOURCE_PASSWORD: pokemon1234
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: pokemon
-      SPRING_RABBITMQ_PASSWORD: pokemon1234
-    networks:
-      - pokemon-net
-
-  # ── Node.js WebSocket Game Server ──
-  ws-server:
-    build:
-      context: ./pokemon-prop-hunt/server
-      dockerfile: Dockerfile
-    container_name: pokemon-ws-server
-    restart: unless-stopped
-    expose:
-      - "3001"
+      PORT: 8080
+      MYSQL_HOST: mysql
+      MYSQL_USER: pokemon
+      MYSQL_PASSWORD: pokemon1234
+      MYSQL_DATABASE: pokemon_prophunt
+      REDIS_HOST: redis
+      RABBITMQ_URL: amqp://pokemon:pokemon1234@rabbitmq:5672
+      CORS_ORIGINS: http://localhost,http://topon.dev,https://topon.dev
     networks:
       - pokemon-net
 
