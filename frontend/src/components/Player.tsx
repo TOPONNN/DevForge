@@ -133,9 +133,9 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   };
 
   useEffect(() => {
-    const walkingClip = clipsByName.Walking;
+    const walkingClip = clipsByName.WalkAnim ?? clipsByName.Walking;
     const idleClip = clipsByName.Talking ?? clipsByName.Singing ?? clipsByName.House;
-    const throwClip = clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
+    const throwClip = clipsByName.ThrowAnim ?? clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
     walkActionRef.current = walkingClip ? mixer.clipAction(walkingClip) : null;
     idleActionRef.current = idleClip ? mixer.clipAction(idleClip) : null;
     throwActionRef.current = throwClip ? mixer.clipAction(throwClip) : null;
@@ -208,7 +208,7 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
       return;
     }
 
-    throwingUntilRef.current = performance.now() + 900;
+    throwingUntilRef.current = performance.now() + 2000;
     isThrowingRef.current = true;
     if (walkAction) {
       walkAction.fadeOut(0.12);
@@ -251,7 +251,8 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
         if (outerGroupRef.current) {
           outerGroupRef.current.updateMatrixWorld(true);
           const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
-          if (worldBox.min.y > 0.01) {
+          // Correct both floating (min.y > 0) and sinking (min.y < 0)
+          if (Math.abs(worldBox.min.y) > 0.005) {
             groundCorrectionRef.current = -worldBox.min.y;
           }
         }
@@ -265,7 +266,7 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   });
 
   return (
-    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw + Math.PI, 0]}>
+    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw + Math.PI / 2, 0]}>
       <group scale={normalizedScale}>
         <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
       </group>

@@ -197,6 +197,8 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   const prevBallIdsRef = useRef<Set<string>>(new Set());
   const animReadyRef = useRef(false);
   const outerGroupRef = useRef<THREE.Group>(null);
+  const measuredRef = useRef(false);
+  const groundCorrectionRef = useRef(0);
 
   const applyLocomotion = (moving: boolean) => {
     const walkAction = walkActionRef.current;
@@ -221,9 +223,9 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   };
 
   useEffect(() => {
-    const walkingClip = clipsByName.Walking;
+    const walkingClip = clipsByName.WalkAnim ?? clipsByName.Walking;
     const idleClip = clipsByName.Talking ?? clipsByName.Singing ?? clipsByName.House;
-    const throwClip = clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
+    const throwClip = clipsByName.ThrowAnim ?? clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
     walkActionRef.current = walkingClip ? mixer.clipAction(walkingClip) : null;
     idleActionRef.current = idleClip ? mixer.clipAction(idleClip) : null;
     throwActionRef.current = throwClip ? mixer.clipAction(throwClip) : null;
@@ -300,7 +302,7 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
       return;
     }
 
-    throwingUntilRef.current = performance.now() + 900;
+    throwingUntilRef.current = performance.now() + 2000;
     isThrowingRef.current = true;
     if (walkAction) {
       walkAction.fadeOut(0.12);
@@ -321,6 +323,29 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
     if (outerGroupRef.current && animReadyRef.current && !outerGroupRef.current.visible) {
       outerGroupRef.current.visible = true;
     }
+
+    // Dynamic ground correction (same as local trainer)
+    if (!measuredRef.current && outerGroupRef.current) {
+      measuredRef.current = true;
+      setTimeout(() => {
+        if (outerGroupRef.current) {
+          outerGroupRef.current.updateMatrixWorld(true);
+          const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
+          if (Math.abs(worldBox.min.y) > 0.005) {
+            groundCorrectionRef.current = -worldBox.min.y;
+          }
+        }
+      }, 500);
+    }
+
+    // Apply ground correction to inner group
+    if (outerGroupRef.current && groundCorrectionRef.current !== 0) {
+      const innerGroup = outerGroupRef.current.children[0] as THREE.Group;
+      if (innerGroup) {
+        innerGroup.position.y = -(0.45 + 0.35) + groundCorrectionRef.current;
+      }
+    }
+
     if (!isThrowingRef.current) {
       return;
     }
@@ -339,9 +364,8 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
 
   return (
     <group ref={outerGroupRef} visible={false} position={player.position} rotation={[0, player.rotation[1], 0]}>
-      {/* Capsule half-extent = 0.8 + ground correction = 0.306 (measured runtime) */}
-      <group position={[0, -(0.45 + 0.35) - 0.306, 0]}>
-        <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
+      <group position={[0, -(0.45 + 0.35), 0]}>
+        <group scale={normalizedScale} rotation={[0, Math.PI / 2, 0]}>
           <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
         </group>
       </group>
