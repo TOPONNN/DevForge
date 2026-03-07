@@ -16,6 +16,7 @@ function PokeballGLBMesh() {
     const pokeballRoot = c.getObjectByName('Pokeball');
     if (pokeballRoot) {
       pokeballRoot.position.set(0, 0, 0);
+      pokeballRoot.scale.set(1, 1, 1);
     }
     c.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -25,15 +26,15 @@ function PokeballGLBMesh() {
     return c;
   }, [scene]);
 
-  return <primitive object={cloned} scale={[0.12, 0.12, 0.12]} />;
+  return <primitive object={cloned} scale={[3.5, 3.5, 3.5]} />;
 }
 
 function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
   const removePokeball = useGameStore((state) => state.removePokeball);
-  const setPokeballState = useGameStore((state) => state.setPokeballState);
   const updatePokeballPosition = useGameStore((state) => state.updatePokeballPosition);
   const hasGroundHitRef = useRef(false);
+  const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFrame(() => {
     const body = bodyRef.current;
@@ -47,24 +48,48 @@ function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
       [position.x, position.y, position.z],
       [velocity.x, velocity.y, velocity.z],
     );
+
+    // First ground contact — bounce + start rolling (stay 'flying' for catch detection)
     if (position.y < 0.35 && !hasGroundHitRef.current) {
       hasGroundHitRef.current = true;
       soundManager.play('pokeball_bounce');
-      setPokeballState(ball.id, 'broken');
 
+      // Small bounce, keep horizontal momentum for rolling
+      body.setTranslation({ x: position.x, y: 0.22, z: position.z }, true);
+      const vx = velocity.x * 0.4;
+      const vz = velocity.z * 0.4;
+      body.setLinvel({ x: vx, y: Math.abs(velocity.y) * 0.12, z: vz }, true);
+
+      // Gradual slowdown — ball rolls to a stop over ~2s
+      body.setLinearDamping(3.0);
+      body.setAngularDamping(3.0);
+
+      // Remove after 3s if not caught
+      removeTimerRef.current = window.setTimeout(() => removePokeball(ball.id), 3000);
+    }
+
+    // Clamp Y so ball doesn't clip through ground while rolling
+    if (hasGroundHitRef.current && position.y < 0.18) {
       body.setTranslation({ x: position.x, y: 0.2, z: position.z }, true);
-      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-      body.setLinearDamping(50);
-      body.setAngularDamping(50);
-
-      window.setTimeout(() => removePokeball(ball.id), 2000);
+      const vy = velocity.y;
+      if (vy < -0.5) {
+        body.setLinvel({ x: velocity.x, y: 0, z: velocity.z }, true);
+      }
     }
 
     if (position.y < -5) {
       removePokeball(ball.id);
     }
   });
+
+  // Cleanup timer on unmount (e.g. ball caught before rolling timeout)
+  useEffect(() => {
+    return () => {
+      if (removeTimerRef.current) {
+        clearTimeout(removeTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <RigidBody
