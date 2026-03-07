@@ -224,7 +224,7 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   }, [activePokeballs, localPlayerId]);
 
   const animReadyRef = useRef(false);
-  const measuredRef = useRef(false);
+  const measureCountRef = useRef(0);
   const outerGroupRef = useRef<THREE.Group>(null);
   const groundCorrectionRef = useRef(0);
   useFrame((_, delta) => {
@@ -244,19 +244,19 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
         applyLocomotion(isMoving);
       }
     }
-    // Dynamic ground correction: measure after animation plays, then adjust
-    if (!measuredRef.current && outerGroupRef.current) {
-      measuredRef.current = true;
-      setTimeout(() => {
-        if (outerGroupRef.current) {
-          outerGroupRef.current.updateMatrixWorld(true);
-          const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
-          // Correct both floating (min.y > 0) and sinking (min.y < 0)
-          if (Math.abs(worldBox.min.y) > 0.005) {
-            groundCorrectionRef.current = -worldBox.min.y;
-          }
+    // Multi-frame ground correction: sample every 10 frames for 3 seconds
+    // Catches both idle and walk pose differences
+    if (outerGroupRef.current && animReadyRef.current && measureCountRef.current < 180) {
+      measureCountRef.current++;
+      if (measureCountRef.current % 10 === 0) {
+        outerGroupRef.current.updateMatrixWorld(true);
+        const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
+        const needed = -worldBox.min.y;
+        // Always take the largest correction (worst-case sinking)
+        if (Math.abs(needed) > Math.abs(groundCorrectionRef.current) + 0.01) {
+          groundCorrectionRef.current = needed;
         }
-      }, 500);
+      }
     }
     // Apply ground correction
     if (outerGroupRef.current && groundCorrectionRef.current !== 0) {
@@ -266,7 +266,7 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   });
 
   return (
-    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw + Math.PI / 2, 0]}>
+    <group ref={outerGroupRef} visible={false} position={[0, -(0.45 + 0.35), 0]} rotation={[0, yaw + Math.PI, 0]}>
       <group scale={normalizedScale}>
         <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
       </group>

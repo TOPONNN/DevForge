@@ -197,7 +197,7 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   const prevBallIdsRef = useRef<Set<string>>(new Set());
   const animReadyRef = useRef(false);
   const outerGroupRef = useRef<THREE.Group>(null);
-  const measuredRef = useRef(false);
+  const measureCountRef = useRef(0);
   const groundCorrectionRef = useRef(0);
 
   const applyLocomotion = (moving: boolean) => {
@@ -324,18 +324,17 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
       outerGroupRef.current.visible = true;
     }
 
-    // Dynamic ground correction (same as local trainer)
-    if (!measuredRef.current && outerGroupRef.current) {
-      measuredRef.current = true;
-      setTimeout(() => {
-        if (outerGroupRef.current) {
-          outerGroupRef.current.updateMatrixWorld(true);
-          const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
-          if (Math.abs(worldBox.min.y) > 0.005) {
-            groundCorrectionRef.current = -worldBox.min.y;
-          }
+    // Multi-frame ground correction: sample every 10 frames for 3 seconds
+    if (outerGroupRef.current && animReadyRef.current && measureCountRef.current < 180) {
+      measureCountRef.current++;
+      if (measureCountRef.current % 10 === 0) {
+        outerGroupRef.current.updateMatrixWorld(true);
+        const worldBox = new THREE.Box3().setFromObject(outerGroupRef.current, true);
+        const needed = -worldBox.min.y;
+        if (Math.abs(needed) > Math.abs(groundCorrectionRef.current) + 0.01) {
+          groundCorrectionRef.current = needed;
         }
-      }, 500);
+      }
     }
 
     // Apply ground correction to inner group
@@ -365,7 +364,7 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   return (
     <group ref={outerGroupRef} visible={false} position={player.position} rotation={[0, player.rotation[1], 0]}>
       <group position={[0, -(0.45 + 0.35), 0]}>
-        <group scale={normalizedScale} rotation={[0, Math.PI / 2, 0]}>
+        <group scale={normalizedScale} rotation={[0, Math.PI, 0]}>
           <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
         </group>
       </group>
