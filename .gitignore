@@ -60,12 +60,12 @@ jenkins_home/
 .sisyphus/
 
 # ── Test artifacts ────────────────────────────
-pokemon-prop-hunt/test-results/
-pokemon-prop-hunt/playwright-report/
-pokemon-prop-hunt/test-*.js
-pokemon-prop-hunt/test-*.tsx
-pokemon-prop-hunt/test-*.cjs
-pokemon-prop-hunt/prep.ts
+frontend/test-results/
+frontend/playwright-report/
+frontend/test-*.js
+frontend/test-*.tsx
+frontend/test-*.cjs
+frontend/prep.ts
 
 # ── Misc assets (local only) ─────────────────
 assets/
@@ -76,7 +76,7 @@ pokeball/
 # ── Debug text logs ───────────────────────────
 console-log.txt
 
-# ── Gradle build cache ───────────────────────
+# ── Backend build artifacts ──────────────────
 backend/.gradle/
 backend/.classpath
 backend/.factorypath

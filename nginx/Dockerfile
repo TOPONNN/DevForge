@@ -1,9 +1,9 @@
 # Stage 1: Build React frontend
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
-COPY pokemon-prop-hunt/package.json pokemon-prop-hunt/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-COPY pokemon-prop-hunt/ .
+COPY frontend/ .
 RUN npm run build
 
 # Stage 2: Nginx (reverse proxy + static file serving)
