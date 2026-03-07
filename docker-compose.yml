@@ -1,28 +1,13 @@
 services:
-  # ── Nginx Reverse Proxy (Entry Point) ──
+  # ── Nginx (Reverse Proxy + Frontend Static Files) ──
   nginx:
     build:
-      context: ./nginx
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: nginx/Dockerfile
     container_name: pokemon-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - pokemon-net
-
-  # ── React Frontend (SPA) ──
-  frontend:
-    build:
-      context: ./pokemon-prop-hunt
-      dockerfile: Dockerfile
-    container_name: pokemon-frontend
-    restart: unless-stopped
-    expose:
-      - "80"
+      - "3000:80"
     depends_on:
       - backend
     networks:

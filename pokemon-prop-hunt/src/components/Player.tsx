@@ -30,6 +30,8 @@ interface LocalTrainerModelProps {
 
 function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   const { scene, animations } = useGLTF('/models/ash_ketchum.glb');
+  const activePokeballs = useGameStore((state) => state.activePokeballs);
+  const localPlayerId = useNetworkStore((state) => state.playerId) || 'local-trainer';
 
   const { clonedScene, normalizedScale, minY, center, clipsByName } = useMemo(() => {
     const cloned = cloneSkeleton(scene) as THREE.Object3D;
@@ -103,6 +105,10 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
   const walkActionRef = useRef<THREE.AnimationAction | null>(null);
   const idleActionRef = useRef<THREE.AnimationAction | null>(null);
+  const throwActionRef = useRef<THREE.AnimationAction | null>(null);
+  const throwingUntilRef = useRef(0);
+  const isThrowingRef = useRef(false);
+  const prevBallIdsRef = useRef<Set<string>>(new Set());
 
   const applyLocomotion = (moving: boolean) => {
     const walkAction = walkActionRef.current;
@@ -129,8 +135,10 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   useEffect(() => {
     const walkingClip = clipsByName.Walking;
     const idleClip = clipsByName.Talking ?? clipsByName.Singing ?? clipsByName.House;
+    const throwClip = clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
     walkActionRef.current = walkingClip ? mixer.clipAction(walkingClip) : null;
     idleActionRef.current = idleClip ? mixer.clipAction(idleClip) : null;
+    throwActionRef.current = throwClip ? mixer.clipAction(throwClip) : null;
 
     if (walkActionRef.current) {
       walkActionRef.current.enabled = true;
@@ -166,8 +174,54 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
   }, [clonedScene, clipsByName, mixer]);
 
   useEffect(() => {
+    if (isThrowingRef.current) {
+      return;
+    }
     applyLocomotion(isMoving);
   }, [isMoving]);
+
+  useEffect(() => {
+    const previous = prevBallIdsRef.current;
+    const next = new Set<string>();
+    let shouldThrow = false;
+
+    for (const ball of activePokeballs) {
+      next.add(ball.id);
+      if (previous.has(ball.id)) {
+        continue;
+      }
+      if (ball.ownerId === localPlayerId) {
+        shouldThrow = true;
+      }
+    }
+
+    prevBallIdsRef.current = next;
+
+    if (!shouldThrow) {
+      return;
+    }
+
+    const throwAction = throwActionRef.current;
+    const walkAction = walkActionRef.current;
+    const idleAction = idleActionRef.current;
+    if (!throwAction) {
+      return;
+    }
+
+    throwingUntilRef.current = performance.now() + 900;
+    isThrowingRef.current = true;
+    if (walkAction) {
+      walkAction.fadeOut(0.12);
+    }
+    if (idleAction) {
+      idleAction.fadeOut(0.12);
+    }
+    throwAction.enabled = true;
+    throwAction.setLoop(THREE.LoopOnce, 1);
+    throwAction.clampWhenFinished = true;
+    throwAction.time = 0;
+    throwAction.fadeIn(0.12).play();
+  }, [activePokeballs, localPlayerId]);
 
   const animReadyRef = useRef(false);
   const measuredRef = useRef(false);
@@ -178,6 +232,17 @@ function LocalTrainerModel({ yaw, isMoving }: LocalTrainerModelProps) {
     // Show model only after animation is ready (prevents bind-pose face-down flash)
     if (outerGroupRef.current && animReadyRef.current && !outerGroupRef.current.visible) {
       outerGroupRef.current.visible = true;
+    }
+    if (isThrowingRef.current) {
+      if (performance.now() >= throwingUntilRef.current) {
+        const throwAction = throwActionRef.current;
+        if (throwAction) {
+          throwAction.fadeOut(0.12);
+          throwAction.stop();
+        }
+        isThrowingRef.current = false;
+        applyLocomotion(isMoving);
+      }
     }
     // Dynamic ground correction: measure after animation plays, then adjust
     if (!measuredRef.current && outerGroupRef.current) {

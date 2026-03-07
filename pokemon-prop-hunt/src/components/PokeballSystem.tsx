@@ -10,9 +10,13 @@ import { soundManager } from '../systems/sound';
 import type { ActivePokeball, ThrowData } from '../types/game';
 
 function PokeballGLBMesh() {
-  const { scene } = useGLTF('/models/pokeball/pokeball.glb');
+  const { scene } = useGLTF('/models/pokeball_throw.glb');
   const cloned = useMemo(() => {
     const c = cloneSkeleton(scene) as THREE.Object3D;
+    const pokeballRoot = c.getObjectByName('Pokeball');
+    if (pokeballRoot) {
+      pokeballRoot.position.set(0, 0, 0);
+    }
     c.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
@@ -21,7 +25,7 @@ function PokeballGLBMesh() {
     return c;
   }, [scene]);
 
-  return <primitive object={cloned} scale={[0.4, 0.4, 0.4]} />;
+  return <primitive object={cloned} scale={[0.12, 0.12, 0.12]} />;
 }
 
 function PokeballProjectile({ ball }: { ball: ActivePokeball }) {
@@ -229,4 +233,4 @@ export default function PokeballSystem({ pointerLocked }: { pointerLocked: boole
   );
 }
 
-useGLTF.preload('/models/pokeball/pokeball.glb');
+useGLTF.preload('/models/pokeball_throw.glb');

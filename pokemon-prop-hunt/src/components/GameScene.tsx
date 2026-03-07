@@ -191,7 +191,7 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
   const walkActionRef = useRef<THREE.AnimationAction | null>(null);
   const idleActionRef = useRef<THREE.AnimationAction | null>(null);
-  const fightActionRef = useRef<THREE.AnimationAction | null>(null);
+  const throwActionRef = useRef<THREE.AnimationAction | null>(null);
   const throwingUntilRef = useRef(0);
   const isThrowingRef = useRef(false);
   const prevBallIdsRef = useRef<Set<string>>(new Set());
@@ -223,10 +223,10 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
   useEffect(() => {
     const walkingClip = clipsByName.Walking;
     const idleClip = clipsByName.Talking ?? clipsByName.Singing ?? clipsByName.House;
-    const fightClip = clipsByName.Fight;
+    const throwClip = clipsByName['ThrowAnim_v4.001'] ?? clipsByName.Fight;
     walkActionRef.current = walkingClip ? mixer.clipAction(walkingClip) : null;
     idleActionRef.current = idleClip ? mixer.clipAction(idleClip) : null;
-    fightActionRef.current = fightClip ? mixer.clipAction(fightClip) : null;
+    throwActionRef.current = throwClip ? mixer.clipAction(throwClip) : null;
 
     if (walkActionRef.current) {
       walkActionRef.current.enabled = true;
@@ -293,10 +293,10 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
       return;
     }
 
-    const fightAction = fightActionRef.current;
+    const throwAction = throwActionRef.current;
     const walkAction = walkActionRef.current;
     const idleAction = idleActionRef.current;
-    if (!fightAction) {
+    if (!throwAction) {
       return;
     }
 
@@ -308,10 +308,11 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
     if (idleAction) {
       idleAction.fadeOut(0.12);
     }
-    fightAction.enabled = true;
-    fightAction.setLoop(THREE.LoopOnce, 1);
-    fightAction.clampWhenFinished = true;
-    fightAction.reset().fadeIn(0.12).play();
+    throwAction.enabled = true;
+    throwAction.setLoop(THREE.LoopOnce, 1);
+    throwAction.clampWhenFinished = true;
+    throwAction.time = 0;
+    throwAction.fadeIn(0.12).play();
   }, [activePokeballs, player.id, player.position]);
 
   useFrame((_, delta) => {
@@ -327,10 +328,10 @@ function RemoteTrainer({ player }: { player: RemotePlayer }) {
       return;
     }
 
-    const fightAction = fightActionRef.current;
-    if (fightAction) {
-      fightAction.fadeOut(0.12);
-      fightAction.stop();
+    const throwAction = throwActionRef.current;
+    if (throwAction) {
+      throwAction.fadeOut(0.12);
+      throwAction.stop();
     }
     isThrowingRef.current = false;
     applyLocomotion(isMoving);
