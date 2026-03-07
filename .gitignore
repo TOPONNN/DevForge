@@ -69,3 +69,14 @@ pokemon-prop-hunt/prep.ts
 
 # ── Misc assets (local only) ─────────────────
 assets/
+
+ # ── Duplicate model files ─────────────────────
+pokeball/
+
+# ── Debug text logs ───────────────────────────
+console-log.txt
+
+# ── Gradle build cache ───────────────────────
+backend/.gradle/
+backend/.classpath
+backend/.factorypath

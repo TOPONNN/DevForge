@@ -5,20 +5,48 @@ pipeline {
         DEPLOY_DIR = '/home/ubuntu/DevForge'
     }
 
+    triggers {
+        pollSCM('H/2 * * * *')
+    }
+
     stages {
-        stage('Pull Latest') {
+        stage('Checkout') {
             steps {
                 dir("${DEPLOY_DIR}") {
-                    sh 'git pull origin master'
+                    sh 'git fetch origin'
+                    sh 'git reset --hard origin/master'
+                    sh 'git clean -fd'
                 }
             }
         }
 
-        stage('Build & Deploy') {
+        stage('Validate') {
             steps {
                 dir("${DEPLOY_DIR}") {
-                    sh 'docker compose down --remove-orphans || true'
-                    sh 'docker compose build --no-cache'
+                    sh 'docker compose config --quiet'
+                }
+            }
+        }
+
+        stage('Stop Previous') {
+            steps {
+                dir("${DEPLOY_DIR}") {
+                    sh 'docker compose down --remove-orphans --timeout 30 || true'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir("${DEPLOY_DIR}") {
+                    sh 'docker compose build --parallel'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                dir("${DEPLOY_DIR}") {
                     sh 'docker compose up -d'
                 }
             }
@@ -27,18 +55,28 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    sleep(10)
-                    def frontendStatus = sh(
-                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:5173',
+                    // Wait for services to stabilize
+                    sleep(15)
+
+                    // Check nginx reverse proxy (port 80)
+                    def nginxStatus = sh(
+                        script: 'curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:80',
                         returnStdout: true
                     ).trim()
-                    def wsStatus = sh(
-                        script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3001',
+
+                    // Check backend API health endpoint
+                    def backendStatus = sh(
+                        script: 'curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:80/api/health',
                         returnStdout: true
                     ).trim()
-                    echo "Frontend: ${frontendStatus}, WS Server: ${wsStatus}"
-                    if (frontendStatus != '200') {
-                        error("Frontend health check failed: ${frontendStatus}")
+
+                    echo "Nginx: ${nginxStatus}, Backend API: ${backendStatus}"
+
+                    if (nginxStatus != '200') {
+                        error("Nginx health check failed: ${nginxStatus}")
+                    }
+                    if (backendStatus != '200') {
+                        echo "WARNING: Backend API not ready yet (${backendStatus}), may still be starting up"
                     }
                 }
             }
@@ -47,16 +85,20 @@ pipeline {
         stage('Cleanup') {
             steps {
                 sh 'docker image prune -f || true'
+                sh 'docker builder prune -f --filter "until=72h" || true'
             }
         }
     }
 
     post {
         failure {
-            echo 'Deployment failed! Check logs.'
+            script {
+                echo 'Deployment FAILED — collecting container logs...'
+                sh 'docker compose -f ${DEPLOY_DIR}/docker-compose.yml logs --tail=50 || true'
+            }
         }
         success {
-            echo 'Deployment successful!'
+            echo 'Deployment successful! Services running on port 80.'
         }
     }
 }
