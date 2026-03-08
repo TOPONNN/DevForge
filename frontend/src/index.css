@@ -17,6 +17,10 @@
   --ink: #f6fbff;
   --ink-dark: #12344b;
   --shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+  --color-main: #b67b5a;
+  --color-sublight: #ffe8c4;
+  --color-subbold: #894820;
+  --color-text: #6d451f;
   font-family: 'Noto Sans KR', 'Jua', sans-serif;
   color: var(--ink);
   text-rendering: optimizeLegibility;
@@ -413,258 +417,152 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 
 /* ============================================================
-   LOBBY SCREEN — Bright Pokémon Theme
+   LOBBY SCREEN — Reference Brown/Warm Theme
    ============================================================ */
 
-/* --- Shared Variables --- */
-:root {
-  --color-main: #4FC3F7;
-  --color-sublight: rgba(255, 255, 255, 0.1);
-  --color-subbold: #0288D1;
-  --color-text: rgba(255, 255, 255, 0.95);
-}
-
-/* --- Button animation (reference common.css) --- */
+/* --- Button animation --- */
 .btn-animation {
-  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.1s ease;
 }
 .btn-animation:hover {
   transform: scale(1.05);
+}
+
+/* --- Lobby background style (applied via inline style on section) --- */
+.lobby-bg {
+  background: url('/images/background-main.png') no-repeat center / cover;
 }
 
 /* --- Base lobby screen --- */
 .lobby-screen {
   position: absolute; inset: 0; z-index: 50; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
-  background: transparent;
-  pointer-events: none; /* Allow clicks to pass through to 3D canvas */
-}
-.lobby-screen button,
-.lobby-screen a,
-.lobby-screen input,
-.lobby-screen select,
-.lobby-screen [role='button'],
-.lobby-screen .channel-card,
-.lobby-screen .sidebar-btn,
-.lobby-screen .room-card,
-.lobby-screen .modal-overlay-ref,
-.lobby-screen .modal-action-btn,
-.lobby-screen .modal-checkbox {
-  pointer-events: auto;
+  font-family: 'DNFBitBitv2', sans-serif;
+  background: url('/images/background-main.png') no-repeat center / cover;
 }
 
 /* ===== MAIN SCREEN ===== */
 .lobby-main-screen {
-  justify-content: space-between !important;
-  padding: 3vh 0;
-  background: none !important;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-
-.main-top-area {
-  text-align: center;
-  pointer-events: none;
-  animation: fade-slide-down 800ms ease-out;
+.main-title-sub-img {
+  width: 30%;
 }
-
-@keyframes fade-slide-down {
-  from { opacity: 0; transform: translateY(-30px); }
-  to { opacity: 1; transform: translateY(0); }
+.main-title-img {
+  width: 35%;
 }
-
-.main-subtitle {
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
-  font-size: clamp(0.8rem, 1.8vw, 1.2rem);
-  color: rgba(255, 255, 255, 0.85);
-  letter-spacing: 0.12em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  margin-bottom: 0.3rem;
+.main-guest-wrap {
+  display: flex; justify-content: center; width: 40%; margin-top: 2vw;
 }
-
-.main-title {
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
-  font-size: clamp(2.8rem, 7vw, 5rem);
-  line-height: 1;
-  color: #F8D030;
-  -webkit-text-stroke: 2px #B8860B;
-  text-shadow: 0 3px 0 #B8860B, 0 6px 20px rgba(248, 208, 48, 0.4), 0 0 40px rgba(248, 208, 48, 0.2);
-}
-
-.main-bottom-area {
-  text-align: center;
-  animation: fade-slide-up 800ms ease-out 200ms both;
-}
-
-@keyframes fade-slide-up {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .lobby-guest-btn {
-  border: 2px solid rgba(227, 53, 13, 0.25);
-  border-radius: 50px;
-  padding: 0.7rem 3.5rem;
-  color: white;
-  background: rgba(227, 53, 13, 0.92);
-  backdrop-filter: blur(8px);
-  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  width: 35%;
+  border: 0.3vw solid var(--color-main);
+  border-radius: 0.6vw;
+  padding: 0.4vw 2vw;
+  color: var(--color-main);
+  background: white;
+  font-size: 2.6vw;
+  font-family: 'DNFBitBitv2', sans-serif;
   cursor: pointer;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  box-shadow: 0 4px 20px rgba(227, 53, 13, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1);
-  letter-spacing: 0.08em;
-  transition: all 200ms ease;
+  text-align: center;
+  transition: background 150ms, color 150ms;
 }
 .lobby-guest-btn:hover {
-  background: rgba(227, 53, 13, 1);
-  transform: scale(1.05);
-  box-shadow: 0 6px 30px rgba(227, 53, 13, 0.45), 0 4px 12px rgba(0, 0, 0, 0.12);
+  background: var(--color-main);
+  color: white;
 }
 
 /* ===== NICKNAME / GUEST LOGIN SCREEN ===== */
 .lobby-nickname-screen {
-  justify-content: space-between;
-  padding: 3vh 0;
-  background: none;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-
-.nickname-top-area {
-  opacity: 0.95;
-}
-
-.nickname-center-area {
-  width: min(560px, 90vw);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.nickname-bottom-area {
-  min-height: 1px;
-}
-
 .login-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.8rem;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  border-radius: 20px;
-  padding: 1.4rem 1.2rem;
+  width: 60%; height: 60%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 0.2vw solid white;
+  border-radius: 0.6vw;
+  background: rgba(255, 255, 255, 0.15);
 }
 .login-header-img {
-  width: clamp(180px, 46%, 260px);
+  width: 40%;
   pointer-events: none;
 }
 .login-nickname-row {
   position: relative;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.8rem;
+  width: 80%;
+  display: flex; justify-content: space-around; align-items: center;
+  margin: 2vw 0;
 }
 .login-nickname-label {
-  width: clamp(76px, 23%, 120px);
+  width: 20%;
   pointer-events: none;
 }
 .login-nickname-input {
-  flex: 1;
-  border: 2px solid rgba(79, 195, 247, 0.5);
-  border-radius: 12px;
-  padding: 0.58rem 0.9rem;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(0, 0, 0, 0.2);
-  font-size: clamp(1rem, 2vw, 1.3rem);
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  width: 65%;
+  border: 0.3vw solid var(--color-main);
+  border-radius: 0.6vw;
+  padding: 0.4vw 2vw;
+  color: black;
+  background: white;
+  font-size: 2.6vw;
+  font-family: 'DNFBitBitv2', sans-serif;
   outline: none;
 }
 .login-nickname-input:focus {
-  border-color: rgba(79, 195, 247, 0.95);
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+  border-color: var(--color-subbold);
+  box-shadow: 0 0 0 0.15vw rgba(182, 123, 90, 0.3);
 }
 .login-submit-wrap {
-  display: flex;
-  justify-content: center;
-  width: 100%;
+  display: flex; justify-content: center; width: 40%; margin-top: 1vw;
 }
 
 /* ===== CHANNEL SELECT SCREEN ===== */
 .lobby-channel-screen {
-  justify-content: space-between;
-  padding: 3vh 0 4vh;
-  background: none;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-
-.channel-top-area {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
 .channel-outer-panel {
-  width: min(980px, 92vw);
-  max-height: min(72vh, 560px);
-  padding: 1rem 1.2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  border-radius: 20px;
-  overflow: hidden;
+  width: 80%; height: 90%;
+  padding: 1.4vw 0;
+  display: flex; flex-direction: column; align-items: center;
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
+  background: rgba(156, 163, 175, 0.3);
+  overflow-y: auto;
 }
 .channel-title-img {
-  width: clamp(190px, 24vw, 300px);
+  width: 20%;
   pointer-events: none;
 }
 .channel-grid {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
-  gap: 0.9rem;
+  width: 100%; height: 100%;
+  display: flex; flex-wrap: wrap; justify-content: space-between;
   align-content: flex-start;
-  padding: 0.35rem;
+  padding: 0 8vw;
   overflow-y: auto;
 }
 .channel-card {
-  width: 100%;
-  min-height: 92px;
-  padding: 0.95rem 1.05rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.95);
+  width: 40%; height: 20%;
+  padding: 0 1.6vw;
+  margin: 1vw 0;
+  display: flex; justify-content: space-between; align-items: center;
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
+  background: var(--color-main);
+  color: white;
   cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition: background 150ms;
 }
 .channel-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(79, 195, 247, 0.7);
-  background: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  background: var(--color-subbold);
 }
 .channel-card-name {
-  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  font-size: 1.8vw;
 }
 .channel-card-count {
-  font-size: clamp(0.92rem, 1.6vw, 1.05rem);
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.6vw;
 }
 
 /* ===== ROOM LIST SCREEN ===== */
@@ -672,9 +570,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   position: relative;
   width: 80%; height: 90%;
   display: flex; justify-content: space-between;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 0.3vw solid white;
   border-radius: 0.6vw;
-  background: #ffffff;
+  background: var(--color-sublight);
   overflow-y: auto;
 }
 .room-list-sidebar {
@@ -684,7 +582,8 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   width: 80%; margin: 1vw auto;
   padding: 0.6vw 1vw; padding-top: 1.2vw; padding-bottom: 1.2vw;
   font-size: 1.1vw;
-  border: 1px solid rgba(79, 195, 247, 0.3);
+  font-family: 'DNFBitBitv2', sans-serif;
+  border: 0.2vw solid white;
   border-radius: 0.6vw;
   background: var(--color-main);
   color: white;
@@ -706,21 +605,19 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   padding: 0 1vw;
   margin: 0.6vw 0.4vw;
   display: flex; justify-content: space-between; align-items: center;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  background: #ffffff;
-  color: #1a3a5c;
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
+  background: var(--color-main);
+  color: white;
   cursor: pointer;
-  transition: background 150ms, box-shadow 150ms, transform 150ms;
+  transition: background 150ms;
 }
 .room-card:hover {
-  background: rgba(79, 195, 247, 0.08);
-  box-shadow: 0 4px 16px rgba(79, 195, 247, 0.15);
-  transform: translateY(-1px);
+  background: var(--color-subbold);
 }
 .room-card-thumb {
   width: 25%; height: 70%;
-  background: rgba(79, 195, 247, 0.1);
+  background: white;
   border-radius: 1vw;
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
@@ -736,20 +633,20 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   display: flex; flex-direction: column; justify-content: space-between;
 }
 .room-card-title-row {
-  background: rgba(79, 195, 247, 0.08);
+  background: white;
+  color: var(--color-text);
   border-radius: 0.6vw;
   padding: 0.4vw;
 }
 .room-card-title-text {
   font-size: 1.3vw;
   display: flex; align-items: center; justify-content: space-between;
-  color: #1a3a5c;
 }
 .room-card-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', sans-serif;
 }
 .room-card-lock-icon {
   width: 10%;
@@ -761,12 +658,13 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 .room-players-count {
   font-size: 1.6vw;
-  color: #1a3a5c;
+  color: var(--color-text);
 }
 .room-empty {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  color: rgba(26, 58, 92, 0.4);
+  color: var(--color-text);
+  opacity: 0.5;
   font-size: 1.6vw;
 }
 
@@ -780,10 +678,10 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   width: 40%;
   display: flex; flex-direction: column;
   align-items: center; justify-content: space-between;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 16px;
-  background: #ffffff;
-  color: #1a3a5c;
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
+  background: var(--color-main);
+  color: white;
   padding: 1vw 0;
   overflow-y: auto;
 }
@@ -807,22 +705,24 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 .modal-input-ref {
   width: 60%;
-  border: 1px solid rgba(79, 195, 247, 0.4);
-  color: #1a3a5c;
+  border: 0.2vw solid white;
+  color: black;
+  background: white;
   padding: 0.4vw 1vw;
   margin: 0 1vw;
   font-size: 1.2vw;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', sans-serif;
   outline: none;
 }
 .modal-pw-input {
   width: 80%;
-  border: 1px solid rgba(79, 195, 247, 0.4);
-  color: #1a3a5c;
+  border: 0.2vw solid white;
+  color: black;
+  background: white;
   padding: 0.4vw 1vw;
   margin: 0 1vw;
   font-size: 1.4vw;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', sans-serif;
   outline: none;
 }
 .modal-checkbox-row {
@@ -833,33 +733,33 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 }
 .modal-checkbox {
   width: 1.4vw; height: 1.4vw;
-  border: 1px solid rgba(79, 195, 247, 0.5);
+  border: 0.2vw solid var(--color-main);
   background: white;
   cursor: pointer;
 }
 .modal-checkbox.checked {
-  background: var(--color-main);
+  background: var(--color-subbold);
 }
 .modal-maxplayer-group {
   display: flex; gap: 0.5vw; flex-wrap: wrap;
 }
 .modal-maxplayer-btn {
   padding: 0.4vw 0.8vw;
-  border: 1px solid rgba(79, 195, 247, 0.35);
+  border: 0.2vw solid white;
   border-radius: 0.4vw;
   background: transparent;
-  color: #1a3a5c;
+  color: white;
   font-size: 1.1vw;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', sans-serif;
   cursor: pointer;
   transition: background 150ms;
 }
 .modal-maxplayer-btn.active {
-  background: var(--color-main);
+  background: var(--color-subbold);
   color: white;
 }
 .modal-maxplayer-btn:hover:not(.active) {
-  background: rgba(79, 195, 247, 0.12);
+  background: rgba(255, 255, 255, 0.2);
 }
 .modal-actions-ref {
   width: 90%;
@@ -869,15 +769,15 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .modal-action-btn {
   width: 30%;
   padding: 1vw;
-  border: 1px solid rgba(79, 195, 247, 0.35);
-  border-radius: 12px;
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
   cursor: pointer;
   text-align: center;
   font-size: 1.4vw;
   transition: background 150ms, color 150ms;
 }
 .modal-action-btn:hover {
-  background: var(--color-main);
+  background: var(--color-subbold);
   color: white;
 }
 
@@ -1405,7 +1305,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 /* RESPONSIVE */
 @media (max-width: 960px) {
-  .channel-grid { grid-template-columns: 1fr; }
+  .channel-grid { flex-direction: column; }
   .room-detail-layout { grid-template-columns: 1fr; }
   .room-detail-panel {
     height: min(760px, 92vh);
@@ -1483,26 +1383,22 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 /* ===== BACK BUTTON ===== */
 .lobby-back-btn {
   position: absolute;
-  top: 3vh;
-  left: 3vw;
-  width: 48px;
-  height: 48px;
+  top: 2vw;
+  left: 2vw;
+  padding: 0.6vw 1.2vw;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 1.5rem;
+  border-radius: 0.6vw;
+  background: var(--color-main);
+  border: 0.2vw solid white;
+  color: white;
+  font-size: 1.4vw;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background 150ms;
   z-index: 60;
-  font-family: 'DNFBitBitv2', 'Jua', sans-serif;
+  font-family: 'DNFBitBitv2', sans-serif;
 }
 .lobby-back-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: var(--color-subbold);
 }

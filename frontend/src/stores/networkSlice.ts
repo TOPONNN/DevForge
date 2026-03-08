@@ -331,6 +331,11 @@ export const connectLobby = (channel: number): AppThunk => (dispatch, getState) 
       return;
     }
 
+    if (parsed.type === 'room_created') {
+      console.log('[createRoom] room_created:', parsed.data);
+      return;
+    }
+
     if (parsed.type === 'joined') {
       dispatch(networkSlice.actions.setWs(ws));
       dispatch(networkSlice.actions.setLobbyWs(null));
@@ -339,6 +344,12 @@ export const connectLobby = (channel: number): AppThunk => (dispatch, getState) 
       dispatch(networkSlice.actions.setIsHost(parsed.data.isHost));
       dispatch(networkSlice.actions.setIsConnected(true));
       attachRoomSocketHandlers(ws, dispatch, getState);
+      return;
+    }
+
+    if (parsed.type === 'error') {
+      console.error('[WS Error]', parsed.data.message);
+      alert(parsed.data.message);
       return;
     }
 
@@ -402,8 +413,10 @@ export const createRoom = (opts: {
   playerName: string;
 }): AppThunk =>
   (dispatch, getState) => {
+    console.log('[createRoom] opts:', opts);
     const existingWs = getState().network.lobbyWs;
     if (existingWs && existingWs.readyState === WebSocket.OPEN) {
+      console.log('[createRoom] sending via existing lobbyWs, readyState:', existingWs.readyState);
       sendMessage(existingWs, { type: 'create_room', data: opts });
       return;
     }
@@ -413,24 +426,35 @@ export const createRoom = (opts: {
       existingWs.close();
     }
 
+    console.log('[createRoom] fallback: creating new WebSocket');
     const ws = new WebSocket(buildSocketUrl());
 
     ws.onopen = () => {
+      console.log('[createRoom] fallback ws.onopen');
       sendMessage(ws, { type: 'create_room', data: opts });
       dispatch(networkSlice.actions.setLobbyWs(ws));
     };
 
     ws.onclose = () => {
+      console.log('[createRoom] fallback ws.onclose');
       dispatch(networkSlice.actions.setLobbyWs(null));
     };
 
-    ws.onerror = () => {};
+    ws.onerror = () => {
+      console.log('[createRoom] fallback ws.onerror');
+    };
 
     ws.onmessage = (event) => {
+      console.log('[createRoom] fallback ws.onmessage raw:', event.data);
       const parsed = JSON.parse(String(event.data)) as NetworkMessage;
 
       if (parsed.type === 'room_list') {
         dispatch(networkSlice.actions.setRooms(parsed.data.rooms));
+        return;
+      }
+
+      if (parsed.type === 'room_created') {
+        console.log('[createRoom] room_created:', parsed.data);
         return;
       }
 
@@ -442,6 +466,12 @@ export const createRoom = (opts: {
         dispatch(networkSlice.actions.setIsHost(parsed.data.isHost));
         dispatch(networkSlice.actions.setIsConnected(true));
         attachRoomSocketHandlers(ws, dispatch, getState);
+        return;
+      }
+
+      if (parsed.type === 'error') {
+        console.error('[WS Error]', parsed.data.message);
+        alert(parsed.data.message);
         return;
       }
 
