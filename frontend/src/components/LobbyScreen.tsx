@@ -528,6 +528,13 @@ export default function LobbyScreen() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="room-detail-sidebar">
+            <div className="room-detail-preview">
+              <h2>미리보기</h2>
+              <RolePreview3D role={localRole} speciesName={localRole === 'pokemon' ? selectedSpecies?.name : undefined} />
+            </div>
 
             <div className="room-detail-chat">
               <h2>채팅</h2>
@@ -562,11 +569,6 @@ export default function LobbyScreen() {
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="room-detail-preview">
-            <h2>미리보기</h2>
-            <RolePreview3D role={localRole} speciesName={localRole === 'pokemon' ? selectedSpecies?.name : undefined} />
           </div>
         </div>
       </div>

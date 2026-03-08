@@ -859,7 +859,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-detail-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) 1fr 1fr;
+  grid-template-columns: minmax(220px, 0.7fr) 1fr 1.3fr;
   gap: 1rem;
   flex: 1;
   min-height: 0;
@@ -892,10 +892,16 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-detail-center {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
+}
+
+.room-detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 0;
 }
 
 .room-detail-preview {
@@ -905,6 +911,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   padding: 0.9rem;
   display: flex;
   flex-direction: column;
+  flex: 1.2;
   min-height: 0;
 }
 
@@ -919,7 +926,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-detail-preview .role-preview-3d {
   flex: 1;
   height: auto;
-  min-height: 300px;
+  min-height: 200px;
 }
 
 .room-detail-center::-webkit-scrollbar,
@@ -1266,7 +1273,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   grid-template-columns: repeat(2, 1fr);
   gap: 0.65rem;
   overflow-y: auto;
-  padding-right: 0.35rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.2rem;
   flex: 1;
 }
 
@@ -1339,6 +1346,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
     overflow: visible;
     padding-right: 0;
   }
+  .room-detail-sidebar {
+    flex-direction: column;
+  }
   .room-detail-preview .role-preview-3d {
     height: 250px;
     min-height: unset;
@@ -1383,7 +1393,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .trainer-pokeball-label {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-subbold);
   font-weight: 700;
 }
 
@@ -1399,6 +1409,19 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   min-width: 48px;
   padding: 0.32rem 0.5rem;
   font-size: 0.86rem;
+  border-color: var(--color-main);
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.trainer-pokeball-options .modal-maxplayer-btn.active {
+  background: var(--color-subbold);
+  color: white;
+  border-color: var(--color-subbold);
+}
+
+.trainer-pokeball-options .modal-maxplayer-btn:hover:not(.active) {
+  background: rgba(182, 123, 90, 0.15);
 }
 
 @media (max-width: 960px) {
