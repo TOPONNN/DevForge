@@ -183,8 +183,8 @@ export default function LobbyScreen() {
       <>
         <LobbyBackground3D />
         <section className="lobby-screen lobby-main-screen">
-          <img className="main-title-sub-img" src="/images/text_title_sub.png" alt="" />
-          <img className="main-title-img" src="/images/text_title_brown.png" alt="" />
+          <p className="main-title-sub">포켓몬을 찾아서 잡아라!</p>
+          <h1 className="main-title">포켓몬 숨바꼭질</h1>
           <div className="main-guest-wrap">
             <button type="button" className="lobby-guest-btn btn-animation" onClick={() => setView('nickname')}>
               Guest
@@ -198,64 +198,72 @@ export default function LobbyScreen() {
   // ── NICKNAME SCREEN ─────────────────────────────────────────
   if (!isConnected && view === 'nickname') {
     return (
-      <section className="lobby-screen lobby-nickname-screen">
-        <button type="button" className="lobby-back-btn" onClick={() => setView('main')}>←</button>
-        <div className="login-panel">
-          <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
-          <div className="login-nickname-row">
-            <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
-            <input
-              className="login-nickname-input"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleGoToChannels();
-              }}
-            />
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen lobby-nickname-screen">
+          <button type="button" className="lobby-back-btn" onClick={() => setView('main')}>←</button>
+          <div className="login-panel">
+            <img className="login-header-img" src="/images/text_login_guest.png" alt="" />
+            <div className="login-nickname-row">
+              <img className="login-nickname-label" src="/images/text_nickname.png" alt="" />
+              <input
+                className="login-nickname-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGoToChannels();
+                }}
+              />
+            </div>
+            <div className="login-submit-wrap">
+              <button
+                type="button"
+                className="lobby-guest-btn btn-animation"
+                onClick={handleGoToChannels}
+              >
+                Guest
+              </button>
+            </div>
           </div>
-          <div className="login-submit-wrap">
-            <button
-              type="button"
-              className="lobby-guest-btn btn-animation"
-              onClick={handleGoToChannels}
-            >
-              Guest
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
+      </>
     );
   }
 
   // ── CHANNEL SELECT ──────────────────────────────────────────
   if (!isConnected && view === 'channels') {
     return (
-      <section className="lobby-screen lobby-channel-screen">
-        <button type="button" className="lobby-back-btn" onClick={() => setView('nickname')}>←</button>
-        <div className="channel-outer-panel">
-          <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
-          <div className="channel-grid">
-            {CHANNELS.map((ch) => (
-              <div
-                key={ch.id}
-                className="channel-card"
-                onClick={() => handleSelectChannel(ch.id)}
-              >
-                <p className="channel-card-name">{ch.name} ({ch.id}채널)</p>
-                <p className="channel-card-count">{channelCounts[ch.id] ?? 0}/100</p>
-              </div>
-            ))}
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen lobby-channel-screen">
+          <button type="button" className="lobby-back-btn" onClick={() => setView('nickname')}>←</button>
+          <div className="channel-outer-panel">
+            <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
+            <div className="channel-grid">
+              {CHANNELS.map((ch) => (
+                <div
+                  key={ch.id}
+                  className="channel-card"
+                  onClick={() => handleSelectChannel(ch.id)}
+                >
+                  <p className="channel-card-name">{ch.name} ({ch.id}채널)</p>
+                  <p className="channel-card-count">{channelCounts[ch.id] ?? 0}/100</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </>
     );
   }
 
   // ── ROOM LIST ───────────────────────────────────────────────
   if (!isConnected && view === 'rooms') {
     return (
-      <section className="lobby-screen">
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen">
         <div className="room-list-outer">
           {/* Sidebar */}
           <div className="room-list-sidebar">
@@ -398,6 +406,7 @@ export default function LobbyScreen() {
           </div>
         )}
       </section>
+      </>
     );
   }
 

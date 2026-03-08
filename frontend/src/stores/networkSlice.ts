@@ -292,8 +292,11 @@ const attachRoomSocketHandlers = (ws: WebSocket, dispatch: (action: unknown) => 
 };
 
 export const connectLobby = (channel: number): AppThunk => (dispatch, getState) => {
-  if (_lobbyWs) {
-    _lobbyWs.close();
+  const prev = _lobbyWs;
+  if (prev) {
+    prev.onclose = null;
+    prev.close();
+    _lobbyWs = null;
   }
 
   const ws = new WebSocket(buildSocketUrl());
@@ -306,7 +309,7 @@ export const connectLobby = (channel: number): AppThunk => (dispatch, getState) 
   };
 
   ws.onclose = () => {
-    _lobbyWs = null;
+    if (_lobbyWs === ws) _lobbyWs = null;
     dispatch(networkSlice.actions.setRooms([]));
   };
 
@@ -362,8 +365,11 @@ export const setChannel = (channel: number): AppThunk => (dispatch) => {
 };
 
 export const connectChannelLobby = (): AppThunk => (dispatch) => {
-  if (_channelWs) {
-    _channelWs.close();
+  const prev = _channelWs;
+  if (prev) {
+    prev.onclose = null;
+    prev.close();
+    _channelWs = null;
   }
 
   const ws = new WebSocket(buildSocketUrl());
@@ -372,7 +378,7 @@ export const connectChannelLobby = (): AppThunk => (dispatch) => {
     _channelWs = ws;
   };
   ws.onclose = () => {
-    _channelWs = null;
+    if (_channelWs === ws) _channelWs = null;
   };
   ws.onerror = () => {};
   ws.onmessage = (event) => {
@@ -409,7 +415,9 @@ export const createRoom = (opts: {
 
     // Lobby WS is null or closed — create a fresh connection
     if (_lobbyWs) {
+      _lobbyWs.onclose = null;
       _lobbyWs.close();
+      _lobbyWs = null;
     }
 
     console.log('[createRoom] fallback: creating new WebSocket');
@@ -423,7 +431,7 @@ export const createRoom = (opts: {
 
     ws.onclose = () => {
       console.log('[createRoom] fallback ws.onclose');
-      _lobbyWs = null;
+      if (_lobbyWs === ws) _lobbyWs = null;
     };
 
     ws.onerror = () => {
