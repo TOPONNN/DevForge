@@ -152,7 +152,7 @@ export default function RolePreview3D({ role, speciesName }: RolePreview3DProps)
   return (
     <div className="role-preview-3d" aria-label="3d-role-preview">
       <Canvas
-        camera={{ position: [0, 0.45, 3.8], fov: 50 }}
+        camera={{ position: [0, 0.35, 3.8], fov: 50 }}
         gl={{ antialias: true, alpha: true }}
       >
         <hemisphereLight args={['#ffffff', '#d3e4ff', 1.05]} position={[0, 5, 0]} />
@@ -171,7 +171,7 @@ export default function RolePreview3D({ role, speciesName }: RolePreview3DProps)
           enableRotate
           minPolarAngle={Math.PI * 0.3}
           maxPolarAngle={Math.PI * 0.7}
-          target={[0, 0.4, 0]}
+          target={[0, 0.3, 0]}
         />
       </Canvas>
     </div>
