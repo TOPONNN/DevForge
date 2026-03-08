@@ -796,7 +796,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 /* ===== ROOM DETAIL (connected) ===== */
 .room-detail-panel {
   width: 90vw;
-  max-width: 1100px;
+  max-width: 1400px;
   height: 88vh;
   padding: 1.2rem;
   display: flex;
@@ -859,7 +859,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-detail-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 1.2fr;
+  grid-template-columns: minmax(220px, 0.7fr) 1fr 1fr;
   gap: 1rem;
   flex: 1;
   min-height: 0;
@@ -889,7 +889,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   overflow: hidden;
 }
 
-.room-detail-right {
+.room-detail-center {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -898,21 +898,45 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   padding-right: 0.25rem;
 }
 
-.room-detail-right::-webkit-scrollbar,
+.room-detail-preview {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 0.6vw;
+  border: 0.15vw solid rgba(182, 123, 90, 0.3);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.room-detail-preview h2 {
+  font-family: 'DNFBitBitv2', sans-serif;
+  font-size: 1.18rem;
+  color: var(--color-subbold);
+  margin-bottom: 0.7rem;
+  flex-shrink: 0;
+}
+
+.room-detail-preview .role-preview-3d {
+  flex: 1;
+  height: auto;
+  min-height: 300px;
+}
+
+.room-detail-center::-webkit-scrollbar,
 .player-list::-webkit-scrollbar,
 .chat-log::-webkit-scrollbar,
 .room-detail-selection .pokemon-select-grid::-webkit-scrollbar {
   width: 6px;
 }
 
-.room-detail-right::-webkit-scrollbar-track,
+.room-detail-center::-webkit-scrollbar-track,
 .player-list::-webkit-scrollbar-track,
 .chat-log::-webkit-scrollbar-track,
 .room-detail-selection .pokemon-select-grid::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.room-detail-right::-webkit-scrollbar-thumb,
+.room-detail-center::-webkit-scrollbar-thumb,
 .player-list::-webkit-scrollbar-thumb,
 .chat-log::-webkit-scrollbar-thumb,
 .room-detail-selection .pokemon-select-grid::-webkit-scrollbar-thumb {
@@ -950,7 +974,6 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   flex-direction: column;
   gap: 0.45rem;
   overflow-y: auto;
-  max-height: 350px;
   padding-right: 0.4rem;
 }
 
@@ -1312,9 +1335,13 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
     height: min(760px, 92vh);
     overflow-y: auto;
   }
-  .room-detail-right {
+  .room-detail-center {
     overflow: visible;
     padding-right: 0;
+  }
+  .room-detail-preview .role-preview-3d {
+    height: 250px;
+    min-height: unset;
   }
 }
 

@@ -482,7 +482,7 @@ export default function LobbyScreen() {
             </div>
           </div>
 
-          <div className="room-detail-right">
+          <div className="room-detail-center">
             <div className="room-detail-selection">
               <h2>역할 선택</h2>
               <div className="role-select-group">
@@ -505,12 +505,10 @@ export default function LobbyScreen() {
               {localRole === 'pokemon' ? (
                 <>
                   <h2>포켓몬 선택</h2>
-                  <RolePreview3D role="pokemon" speciesName={selectedSpecies?.name} />
                   <PokemonSelect selectedSpecies={selectedSpecies} onSelect={handleSelectSpecies} />
                 </>
               ) : (
                 <div className="trainer-status">
-                  <RolePreview3D role="trainer" />
                   <span>당신은 <strong>트레이너</strong>입니다.<br />몬스터볼을 던져 포켓몬을 잡으세요!</span>
                   <div className="trainer-pokeball-row">
                     <span className="trainer-pokeball-label">시작 몬스터볼</span>
@@ -564,6 +562,11 @@ export default function LobbyScreen() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="room-detail-preview">
+            <h2>미리보기</h2>
+            <RolePreview3D role={localRole} speciesName={localRole === 'pokemon' ? selectedSpecies?.name : undefined} />
           </div>
         </div>
       </div>
