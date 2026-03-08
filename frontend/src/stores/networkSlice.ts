@@ -402,17 +402,51 @@ export const createRoom = (opts: {
   playerName: string;
 }): AppThunk =>
   (dispatch, getState) => {
-    const ws = getState().network.lobbyWs;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      sendMessage(ws, { type: 'create_room', data: opts });
+    const existingWs = getState().network.lobbyWs;
+    if (existingWs && existingWs.readyState === WebSocket.OPEN) {
+      sendMessage(existingWs, { type: 'create_room', data: opts });
       return;
     }
 
-    const newWs = new WebSocket(buildSocketUrl());
-    newWs.onopen = () => {
-      sendMessage(newWs, { type: 'create_room', data: opts });
+    // Lobby WS is null or closed — create a fresh connection with proper handlers
+    if (existingWs) {
+      existingWs.close();
+    }
+
+    const ws = new WebSocket(buildSocketUrl());
+
+    ws.onopen = () => {
+      sendMessage(ws, { type: 'create_room', data: opts });
+      dispatch(networkSlice.actions.setLobbyWs(ws));
     };
-    dispatch(networkSlice.actions.setLobbyWs(newWs));
+
+    ws.onclose = () => {
+      dispatch(networkSlice.actions.setLobbyWs(null));
+    };
+
+    ws.onerror = () => {};
+
+    ws.onmessage = (event) => {
+      const parsed = JSON.parse(String(event.data)) as NetworkMessage;
+
+      if (parsed.type === 'room_list') {
+        dispatch(networkSlice.actions.setRooms(parsed.data.rooms));
+        return;
+      }
+
+      if (parsed.type === 'joined') {
+        dispatch(networkSlice.actions.setWs(ws));
+        dispatch(networkSlice.actions.setLobbyWs(null));
+        dispatch(networkSlice.actions.setPlayerId(parsed.data.playerId));
+        dispatch(networkSlice.actions.setRoomCode(parsed.data.roomCode));
+        dispatch(networkSlice.actions.setIsHost(parsed.data.isHost));
+        dispatch(networkSlice.actions.setIsConnected(true));
+        attachRoomSocketHandlers(ws, dispatch, getState);
+        return;
+      }
+
+      handleRoomMessage(parsed, dispatch, getState);
+    };
   };
 
 export const joinRoom = (roomCode: string, playerName: string, password?: string): AppThunk =>
