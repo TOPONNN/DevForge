@@ -5,7 +5,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody } from '@re
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useKeyboard } from '../hooks/useKeyboard';
-import { dodge, gameActions } from '../stores/gameSlice';
+import { gameActions } from '../stores/gameSlice';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
 import { sendPosition } from '../stores/networkSlice';
 import { soundManager } from '../systems/sound';
@@ -18,7 +18,9 @@ interface PlayerProps {
 
 const TRAINER_WALK_SPEED = 5;
 const TRAINER_SPRINT_SPEED = 7.8;
-const TRAINER_JUMP_IMPULSE = 5;
+const TRAINER_JUMP_IMPULSE = 8;
+const POKEMON_JUMP_IMPULSE = 7;
+const MAX_JUMP_COUNT = 2;
 const EYE_HEIGHT = 1.6;
 const POKEMON_ACCELERATION = 10;
 const POKEMON_MOVING_SPEED_THRESHOLD = 0.08;
@@ -275,8 +277,8 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
   const yawTargetRef = useRef(0);
   const pitchTargetRef = useRef(0);
   const jumpHeldRef = useRef(false);
-  const dodgeHeldRef = useRef(false);
   const groundedRef = useRef(false);
+  const jumpCountRef = useRef(0);
   const footstepTimerRef = useRef(0);
   const pokemonMovingRef = useRef(false);
   const trainerMovingRef = useRef(false);
@@ -336,6 +338,9 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
       { x: 0, y: -1, z: 0 },
     );
     groundedRef.current = world.castRay(ray, 1.1, true, undefined, undefined, undefined, body) !== null;
+    if (groundedRef.current) {
+      jumpCountRef.current = 0;
+    }
 
     // Role-dependent smoothing: 1st person needs near-instant response, 3rd person needs smooth follow
     const lookSmooth = (role === 'trainer' && cameraMode === 'first-person')
@@ -367,8 +372,14 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
         true,
       );
       pokemonVelocityRef.current.set(currentVel.x, 0, currentVel.z);
-      if (keys.jump && !jumpHeldRef.current && groundedRef.current && pointerLocked) {
+      if (keys.jump && !jumpHeldRef.current && jumpCountRef.current < MAX_JUMP_COUNT && pointerLocked) {
+        // Reset vertical velocity for double jump to feel responsive
+        if (jumpCountRef.current > 0) {
+          const vel = body.linvel();
+          body.setLinvel({ x: vel.x, y: 0, z: vel.z }, true);
+        }
         body.applyImpulse({ x: 0, y: TRAINER_JUMP_IMPULSE, z: 0 }, true);
+        jumpCountRef.current += 1;
       }
       jumpHeldRef.current = keys.jump;
 
@@ -422,14 +433,16 @@ export default function Player({ keysRef, pointerLocked }: PlayerProps) {
         true,
       );
 
-      if (keys.jump && !dodgeHeldRef.current && pointerLocked && !isCaught) {
-        if (dispatch(dodge())) {
-          soundManager.play('pokemon_dodge');
-          const dodgeDir = moveDirection.lengthSq() > 0 ? moveDirection.clone().multiplyScalar(12) : new THREE.Vector3(0, 0, -8);
-          body.applyImpulse({ x: dodgeDir.x, y: 0.4, z: dodgeDir.z }, true);
+      if (keys.jump && !jumpHeldRef.current && jumpCountRef.current < MAX_JUMP_COUNT && pointerLocked && !isCaught) {
+        // Reset vertical velocity for double jump to feel responsive
+        if (jumpCountRef.current > 0) {
+          const vel = body.linvel();
+          body.setLinvel({ x: vel.x, y: 0, z: vel.z }, true);
         }
+        body.applyImpulse({ x: 0, y: POKEMON_JUMP_IMPULSE, z: 0 }, true);
+        jumpCountRef.current += 1;
       }
-      dodgeHeldRef.current = keys.jump;
+      jumpHeldRef.current = keys.jump;
 
       // 3rd person camera - smooth follow with smoothed lookAt target to prevent jitter
       const camSmooth = 1 - Math.exp(-8 * delta);

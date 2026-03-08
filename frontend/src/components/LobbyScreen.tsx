@@ -535,41 +535,41 @@ export default function LobbyScreen() {
               <h2>미리보기</h2>
               <RolePreview3D role={localRole} speciesName={localRole === 'pokemon' ? selectedSpecies?.name : undefined} />
             </div>
-
-            <div className="room-detail-chat">
-              <h2>채팅</h2>
-              <div className="chat-log">
-                {chat.map((message) => (
-                  <div key={`${message.timestamp}-${message.playerId}`} className="chat-message">
-                    <strong>{message.playerName}:</strong> {message.text}
-                  </div>
-                ))}
-              </div>
-              <div className="chat-input-row">
-                <input
-                  value={chatInput}
-                  placeholder="메시지 입력..."
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      dispatch(sendChat(chatInput));
-                      setChatInput('');
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="chat-send-btn"
-                  onClick={() => {
-                    dispatch(sendChat(chatInput));
-                    setChatInput('');
-                  }}
-                >
-                  보내기
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
+
+      <div className="room-detail-chat-outer">
+        <h2>채팅</h2>
+        <div className="chat-log">
+          {chat.map((message) => (
+            <div key={`${message.timestamp}-${message.playerId}`} className="chat-message">
+              <strong>{message.playerName}:</strong> {message.text}
+            </div>
+          ))}
+        </div>
+        <div className="chat-input-row">
+          <input
+            value={chatInput}
+            placeholder="메시지 입력..."
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                dispatch(sendChat(chatInput));
+                setChatInput('');
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="chat-send-btn"
+            onClick={() => {
+              dispatch(sendChat(chatInput));
+              setChatInput('');
+            }}
+          >
+            보내기
+          </button>
         </div>
       </div>
     </section>

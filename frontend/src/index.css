@@ -435,7 +435,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 /* --- Base lobby screen --- */
 .lobby-screen {
-  position: absolute; inset: 0; z-index: 50; overflow: hidden;
+  position: absolute; inset: 0; z-index: 50; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: 'DNFBitBitv2', sans-serif;
   background: transparent;
@@ -797,7 +797,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-detail-panel {
   width: 90vw;
   max-width: 1400px;
-  height: 88vh;
+  height: 62vh;
   padding: 1.2rem;
   display: flex;
   flex-direction: column;
@@ -859,7 +859,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-detail-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) 1fr 1.3fr;
+  grid-template-columns: minmax(220px, 0.7fr) 1fr 1fr;
   gap: 1rem;
   flex: 1;
   min-height: 0;
@@ -900,7 +900,6 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .room-detail-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
   min-height: 0;
 }
 
@@ -911,7 +910,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   padding: 0.9rem;
   display: flex;
   flex-direction: column;
-  flex: 1.2;
+  flex: 1;
   min-height: 0;
 }
 
@@ -927,6 +926,74 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   flex: 1;
   height: auto;
   min-height: 200px;
+}
+
+.room-detail-chat-outer {
+  width: 90vw;
+  max-width: 1400px;
+  margin-top: 0.7rem;
+  background: rgba(255, 232, 196, 0.9);
+  border: 0.3vw solid white;
+  border-radius: 0.6vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 0.9rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+  animation: lobby-appear 500ms ease-out;
+  max-height: 22vh;
+}
+
+.room-detail-chat-outer h2 {
+  font-family: 'DNFBitBitv2', sans-serif;
+  font-size: 1.18rem;
+  color: var(--color-subbold);
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.room-detail-chat-outer .chat-log {
+  flex: 1;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.6);
+  border: 0.15vw solid rgba(182, 123, 90, 0.2);
+  border-radius: 12px;
+  padding: 0.55rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.room-detail-chat-outer .chat-input-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.room-detail-chat-outer .chat-input-row input {
+  flex: 1;
+  padding: 0.55rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: white;
+  border: 0.15vw solid var(--color-main);
+  color: var(--color-text);
+  outline: none;
+}
+
+.room-detail-chat-outer .chat-send-btn {
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  border: none;
+  font-family: 'DNFBitBitv2', sans-serif;
+  font-size: 0.9rem;
+  color: white;
+  background: var(--color-main);
+  cursor: pointer;
 }
 
 .room-detail-center::-webkit-scrollbar,
@@ -1312,13 +1379,13 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 
 .room-detail-selection .pokemon-card-info { display: flex; flex-direction: column; gap: 0; min-width: 0; }
 .room-detail-selection .pokemon-card-name { color: var(--color-subbold); font-family: 'DNFBitBitv2', sans-serif; font-size: 0.95rem; line-height: 1.2; }
-.room-detail-selection .pokemon-card-name-en { color: rgba(255, 255, 255, 0.5); font-size: 0.6rem; font-weight: 500; }
+.room-detail-selection .pokemon-card-name-en { color: rgba(109, 69, 31, 0.5); font-size: 0.6rem; font-weight: 500; }
 .room-detail-selection .pokemon-card-stats { display: flex; flex-direction: column; gap: 0.22rem; margin-top: 0.35rem; }
 .room-detail-selection .poke-stat-row { display: flex; align-items: center; gap: 0.28rem; }
-.room-detail-selection .poke-stat-label { color: rgba(255, 255, 255, 0.6); font-size: 0.62rem; font-weight: 600; min-width: 44px; white-space: nowrap; }
-.room-detail-selection .poke-stat-track { background: rgba(255, 255, 255, 0.2); flex: 1; height: 4px; border-radius: 999px; overflow: hidden; }
+.room-detail-selection .poke-stat-label { color: rgba(109, 69, 31, 0.7); font-size: 0.62rem; font-weight: 600; min-width: 44px; white-space: nowrap; }
+.room-detail-selection .poke-stat-track { background: rgba(182, 123, 90, 0.2); flex: 1; height: 4px; border-radius: 999px; overflow: hidden; }
 .room-detail-selection .poke-stat-fill { background: var(--color-main); height: 100%; border-radius: 999px; transition: width 300ms ease; }
-.room-detail-selection .poke-stat-num { color: rgba(255, 255, 255, 0.7); font-size: 0.62rem; font-weight: 700; min-width: 20px; text-align: right; }
+.room-detail-selection .poke-stat-num { color: rgba(109, 69, 31, 0.7); font-size: 0.62rem; font-weight: 700; min-width: 20px; text-align: right; }
 .room-detail-selection .pokemon-card-check {
   background: var(--color-main);
   color: #ffffff;
@@ -1352,6 +1419,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   .room-detail-preview .role-preview-3d {
     height: 250px;
     min-height: unset;
+  }
+  .room-detail-chat-outer {
+    max-height: 30vh;
   }
 }
 
