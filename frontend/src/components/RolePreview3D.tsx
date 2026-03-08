@@ -1,5 +1,5 @@
 import { Html, OrbitControls, useGLTF } from '@react-three/drei';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -10,7 +10,7 @@ interface RolePreview3DProps {
   speciesName?: string;
 }
 
-function normalizeAndCloneScene(scene: THREE.Group, targetHeight: number) {
+function cloneScene(scene: THREE.Group) {
   const cloned = SkeletonUtils.clone(scene);
 
   cloned.traverse((child: THREE.Object3D) => {
@@ -32,22 +32,7 @@ function normalizeAndCloneScene(scene: THREE.Group, targetHeight: number) {
     }
   });
 
-  cloned.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(cloned, true);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  bounds.getSize(size);
-  bounds.getCenter(center);
-
-  const height = size.y > 0.001 ? size.y : 1;
-  const scale = targetHeight / height;
-
-  return {
-    clonedScene: cloned,
-    center,
-    minY: bounds.min.y,
-    scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
-  };
+  return cloned;
 }
 
 function PreviewModel({ role, speciesName }: RolePreview3DProps) {
@@ -56,13 +41,43 @@ function PreviewModel({ role, speciesName }: RolePreview3DProps) {
     : `/models/${(speciesName ?? 'bulbasaur').toLowerCase()}.glb?v=2`;
 
   const { scene, animations } = useGLTF(modelPath);
-  const targetHeight = role === 'trainer' ? 1.65 : 1.65;
   const rootRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  const controlsRef = useRef<{ target: THREE.Vector3; update: () => void }>(null);
 
-  const { clonedScene, center, minY, scale } = useMemo(
-    () => normalizeAndCloneScene(scene, targetHeight),
-    [scene, targetHeight],
-  );
+  const clonedScene = useMemo(() => cloneScene(scene), [scene]);
+
+  // Compute bounds and auto-frame after model loads
+  useEffect(() => {
+    if (!rootRef.current) return;
+
+    // Wait a frame for skeleton to settle
+    requestAnimationFrame(() => {
+      if (!rootRef.current) return;
+
+      rootRef.current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootRef.current, true);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
+      const distance = (maxDim / 2) / Math.tan(fov / 2) * 1.4; // 1.4x padding
+
+      // Set camera position looking at center
+      camera.position.set(0, center.y, distance);
+      camera.lookAt(center);
+      camera.updateProjectionMatrix();
+
+      // Update orbit controls target
+      if (controlsRef.current) {
+        controlsRef.current.target.copy(center);
+        controlsRef.current.update();
+      }
+    });
+  }, [clonedScene, camera]);
 
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
 
@@ -132,11 +147,21 @@ function PreviewModel({ role, speciesName }: RolePreview3DProps) {
   }, [clonedScene, mixer]);
 
   return (
-    <group ref={rootRef}>
-      <group scale={scale}>
-        <primitive object={clonedScene} position={[-center.x, -minY, -center.z]} />
+    <>
+      <group ref={rootRef}>
+        <primitive object={clonedScene} />
       </group>
-    </group>
+      <OrbitControls
+        ref={controlsRef as React.RefObject<never>}
+        autoRotate
+        autoRotateSpeed={0.8}
+        enableZoom={false}
+        enablePan={false}
+        enableRotate
+        minPolarAngle={Math.PI * 0.3}
+        maxPolarAngle={Math.PI * 0.7}
+      />
+    </>
   );
 }
 
@@ -152,7 +177,7 @@ export default function RolePreview3D({ role, speciesName }: RolePreview3DProps)
   return (
     <div className="role-preview-3d" aria-label="3d-role-preview">
       <Canvas
-        camera={{ position: [0, 0.85, 3.5], fov: 50 }}
+        camera={{ position: [0, 1, 5], fov: 50 }}
         gl={{ antialias: true, alpha: true }}
       >
         <hemisphereLight args={['#ffffff', '#d3e4ff', 1.05]} position={[0, 5, 0]} />
@@ -162,17 +187,6 @@ export default function RolePreview3D({ role, speciesName }: RolePreview3DProps)
         <Suspense fallback={<PreviewLoading />}>
           <PreviewModel role={role} speciesName={speciesName} />
         </Suspense>
-
-        <OrbitControls
-          autoRotate
-          autoRotateSpeed={0.8}
-          enableZoom={false}
-          enablePan={false}
-          enableRotate
-          minPolarAngle={Math.PI * 0.3}
-          maxPolarAngle={Math.PI * 0.7}
-          target={[0, 0.8, 0]}
-        />
       </Canvas>
     </div>
   );
