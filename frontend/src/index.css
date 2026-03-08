@@ -489,7 +489,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .login-panel {
-  width: 60%; height: auto; max-height: 80%;
+  width: 60%; height: auto; max-height: 85%; overflow-y: auto;
   padding: 3vw 2vw;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   border: 0.2vw solid white;
@@ -942,7 +942,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   position: relative;
   z-index: 2;
   animation: lobby-appear 500ms ease-out;
-  max-height: 28vh;
+  max-height: 20vh;
 }
 
 .room-detail-chat-outer h2 {
