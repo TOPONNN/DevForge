@@ -13,13 +13,15 @@ import type {
 import { gameActions, registerEscapeWithTimeout } from './gameSlice';
 import type { AppThunk, RootState } from './store';
 
+// ── Module-level WebSocket refs (NOT in Redux state to avoid Immer Proxy) ──
+let _lobbyWs: WebSocket | null = null;
+let _channelWs: WebSocket | null = null;
+let _roomWs: WebSocket | null = null;
+
 interface NetworkState {
-  lobbyWs: WebSocket | null;
   channel: number;
   rooms: RoomListItem[];
-  channelWs: WebSocket | null;
   channelCounts: Record<number, number>;
-  ws: WebSocket | null;
   roomCode: string;
   playerId: string;
   players: Record<string, RemotePlayer>;
@@ -29,12 +31,9 @@ interface NetworkState {
 }
 
 const initialState: NetworkState = {
-  lobbyWs: null,
   channel: 1,
   rooms: [],
-  channelWs: null,
   channelCounts: {},
-  ws: null,
   roomCode: '',
   playerId: '',
   players: {},
@@ -85,23 +84,14 @@ const networkSlice = createSlice({
   name: 'network',
   initialState,
   reducers: {
-    setLobbyWs(state, action: PayloadAction<WebSocket | null>) {
-      state.lobbyWs = action.payload;
-    },
     setChannel(state, action: PayloadAction<number>) {
       state.channel = action.payload;
     },
     setRooms(state, action: PayloadAction<RoomListItem[]>) {
       state.rooms = action.payload;
     },
-    setChannelWs(state, action: PayloadAction<WebSocket | null>) {
-      state.channelWs = action.payload;
-    },
     setChannelCounts(state, action: PayloadAction<Record<number, number>>) {
       state.channelCounts = action.payload;
-    },
-    setWs(state, action: PayloadAction<WebSocket | null>) {
-      state.ws = action.payload;
     },
     setRoomCode(state, action: PayloadAction<string>) {
       state.roomCode = action.payload;
@@ -143,12 +133,12 @@ const networkSlice = createSlice({
       state.chat = [...state.chat.slice(-29), action.payload];
     },
     resetLobbyState(state) {
-      state.lobbyWs = null;
+      _lobbyWs = null;
       state.rooms = [];
       state.channel = 1;
     },
     resetRoomState(state) {
-      state.ws = null;
+      _roomWs = null;
       state.roomCode = '';
       state.playerId = '';
       state.players = {};
@@ -157,7 +147,7 @@ const networkSlice = createSlice({
       state.chat = [];
     },
     clearChannelLobby(state) {
-      state.channelWs = null;
+      _channelWs = null;
       state.channelCounts = {};
     },
   },
@@ -302,22 +292,21 @@ const attachRoomSocketHandlers = (ws: WebSocket, dispatch: (action: unknown) => 
 };
 
 export const connectLobby = (channel: number): AppThunk => (dispatch, getState) => {
-  const prev = getState().network.lobbyWs;
-  if (prev) {
-    prev.close();
+  if (_lobbyWs) {
+    _lobbyWs.close();
   }
 
   const ws = new WebSocket(buildSocketUrl());
 
   ws.onopen = () => {
     sendMessage(ws, { type: 'list_rooms', data: { channel } });
-    dispatch(networkSlice.actions.setLobbyWs(ws));
+    _lobbyWs = ws;
     dispatch(networkSlice.actions.setChannel(channel));
     dispatch(networkSlice.actions.setRooms([]));
   };
 
   ws.onclose = () => {
-    dispatch(networkSlice.actions.setLobbyWs(null));
+    _lobbyWs = null;
     dispatch(networkSlice.actions.setRooms([]));
   };
 
@@ -337,8 +326,8 @@ export const connectLobby = (channel: number): AppThunk => (dispatch, getState) 
     }
 
     if (parsed.type === 'joined') {
-      dispatch(networkSlice.actions.setWs(ws));
-      dispatch(networkSlice.actions.setLobbyWs(null));
+      _roomWs = ws;
+      _lobbyWs = null;
       dispatch(networkSlice.actions.setPlayerId(parsed.data.playerId));
       dispatch(networkSlice.actions.setRoomCode(parsed.data.roomCode));
       dispatch(networkSlice.actions.setIsHost(parsed.data.isHost));
@@ -357,35 +346,33 @@ export const connectLobby = (channel: number): AppThunk => (dispatch, getState) 
   };
 };
 
-export const disconnectLobby = (): AppThunk => (dispatch, getState) => {
-  const ws = getState().network.lobbyWs;
-  if (ws) {
-    ws.close();
+
+export const disconnectLobby = (): AppThunk => (dispatch) => {
+  if (_lobbyWs) {
+    _lobbyWs.close();
   }
   dispatch(networkSlice.actions.resetLobbyState());
 };
 
-export const setChannel = (channel: number): AppThunk => (dispatch, getState) => {
+export const setChannel = (channel: number): AppThunk => (dispatch) => {
   dispatch(networkSlice.actions.setChannel(channel));
-  const ws = getState().network.lobbyWs;
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    sendMessage(ws, { type: 'list_rooms', data: { channel } });
+  if (_lobbyWs && _lobbyWs.readyState === WebSocket.OPEN) {
+    sendMessage(_lobbyWs, { type: 'list_rooms', data: { channel } });
   }
 };
 
-export const connectChannelLobby = (): AppThunk => (dispatch, getState) => {
-  const prev = getState().network.channelWs;
-  if (prev) {
-    prev.close();
+export const connectChannelLobby = (): AppThunk => (dispatch) => {
+  if (_channelWs) {
+    _channelWs.close();
   }
 
   const ws = new WebSocket(buildSocketUrl());
   ws.onopen = () => {
     sendMessage(ws, { type: 'list_channels', data: {} });
-    dispatch(networkSlice.actions.setChannelWs(ws));
+    _channelWs = ws;
   };
   ws.onclose = () => {
-    dispatch(networkSlice.actions.setChannelWs(null));
+    _channelWs = null;
   };
   ws.onerror = () => {};
   ws.onmessage = (event) => {
@@ -396,10 +383,9 @@ export const connectChannelLobby = (): AppThunk => (dispatch, getState) => {
   };
 };
 
-export const disconnectChannelLobby = (): AppThunk => (dispatch, getState) => {
-  const ws = getState().network.channelWs;
-  if (ws) {
-    ws.close();
+export const disconnectChannelLobby = (): AppThunk => (dispatch) => {
+  if (_channelWs) {
+    _channelWs.close();
   }
   dispatch(networkSlice.actions.clearChannelLobby());
 };
@@ -414,16 +400,16 @@ export const createRoom = (opts: {
 }): AppThunk =>
   (dispatch, getState) => {
     console.log('[createRoom] opts:', opts);
-    const existingWs = getState().network.lobbyWs;
-    if (existingWs && existingWs.readyState === WebSocket.OPEN) {
-      console.log('[createRoom] sending via existing lobbyWs, readyState:', existingWs.readyState);
-      sendMessage(existingWs, { type: 'create_room', data: opts });
+
+    if (_lobbyWs && _lobbyWs.readyState === WebSocket.OPEN) {
+      console.log('[createRoom] sending via existing _lobbyWs, readyState:', _lobbyWs.readyState);
+      sendMessage(_lobbyWs, { type: 'create_room', data: opts });
       return;
     }
 
-    // Lobby WS is null or closed — create a fresh connection with proper handlers
-    if (existingWs) {
-      existingWs.close();
+    // Lobby WS is null or closed — create a fresh connection
+    if (_lobbyWs) {
+      _lobbyWs.close();
     }
 
     console.log('[createRoom] fallback: creating new WebSocket');
@@ -432,12 +418,12 @@ export const createRoom = (opts: {
     ws.onopen = () => {
       console.log('[createRoom] fallback ws.onopen');
       sendMessage(ws, { type: 'create_room', data: opts });
-      dispatch(networkSlice.actions.setLobbyWs(ws));
+      _lobbyWs = ws;
     };
 
     ws.onclose = () => {
       console.log('[createRoom] fallback ws.onclose');
-      dispatch(networkSlice.actions.setLobbyWs(null));
+      _lobbyWs = null;
     };
 
     ws.onerror = () => {
@@ -459,8 +445,8 @@ export const createRoom = (opts: {
       }
 
       if (parsed.type === 'joined') {
-        dispatch(networkSlice.actions.setWs(ws));
-        dispatch(networkSlice.actions.setLobbyWs(null));
+        _roomWs = ws;
+        _lobbyWs = null;
         dispatch(networkSlice.actions.setPlayerId(parsed.data.playerId));
         dispatch(networkSlice.actions.setRoomCode(parsed.data.roomCode));
         dispatch(networkSlice.actions.setIsHost(parsed.data.isHost));
@@ -481,21 +467,19 @@ export const createRoom = (opts: {
 
 export const joinRoom = (roomCode: string, playerName: string, password?: string): AppThunk =>
   (dispatch, getState) => {
-    const lobbyWs = getState().network.lobbyWs;
-    if (lobbyWs) {
-      lobbyWs.close();
-      dispatch(networkSlice.actions.setLobbyWs(null));
+    if (_lobbyWs) {
+      _lobbyWs.close();
+      _lobbyWs = null;
     }
 
-    const prev = getState().network.ws;
-    if (prev) {
-      prev.close();
+    if (_roomWs) {
+      _roomWs.close();
     }
 
     const ws = new WebSocket(buildSocketUrl());
     ws.onopen = () => {
       sendMessage(ws, { type: 'join_room', data: { roomCode, playerName, password } });
-      dispatch(networkSlice.actions.setWs(ws));
+      _roomWs = ws;
       dispatch(networkSlice.actions.setRoomCode(roomCode));
       dispatch(networkSlice.actions.setIsConnected(true));
     };
@@ -504,22 +488,20 @@ export const joinRoom = (roomCode: string, playerName: string, password?: string
   };
 
 export const connect = (roomCode: string, playerName: string): AppThunk => (dispatch, getState) => {
-  const previousWs = getState().network.ws;
-  if (previousWs) {
-    previousWs.close();
+  if (_roomWs) {
+    _roomWs.close();
   }
 
-  const lobbyWs = getState().network.lobbyWs;
-  if (lobbyWs) {
-    lobbyWs.close();
-    dispatch(networkSlice.actions.setLobbyWs(null));
+  if (_lobbyWs) {
+    _lobbyWs.close();
+    _lobbyWs = null;
   }
 
   const ws = new WebSocket(buildSocketUrl());
 
   ws.onopen = () => {
     sendMessage(ws, { type: 'join', data: { roomCode, playerName } });
-    dispatch(networkSlice.actions.setWs(ws));
+    _roomWs = ws;
     dispatch(networkSlice.actions.setRoomCode(roomCode));
     dispatch(networkSlice.actions.setIsConnected(true));
   };
@@ -527,16 +509,15 @@ export const connect = (roomCode: string, playerName: string): AppThunk => (disp
   attachRoomSocketHandlers(ws, dispatch, getState);
 };
 
-export const disconnect = (): AppThunk => (dispatch, getState) => {
-  const ws = getState().network.ws;
-  if (ws) {
-    ws.close();
+export const disconnect = (): AppThunk => (dispatch) => {
+  if (_roomWs) {
+    _roomWs.close();
   }
   dispatch(networkSlice.actions.resetRoomState());
 };
 
-export const sendReady = (ready: boolean): AppThunk => (_, getState) => {
-  sendMessage(getState().network.ws, { type: 'ready', data: { ready } });
+export const sendReady = (ready: boolean): AppThunk => () => {
+  sendMessage(_roomWs, { type: 'ready', data: { ready } });
 };
 
 export const sendPosition = (position: Vector3Tuple, rotation: RotationTuple): AppThunk => (_, getState) => {
@@ -544,7 +525,7 @@ export const sendPosition = (position: Vector3Tuple, rotation: RotationTuple): A
   if (!playerId) {
     return;
   }
-  sendMessage(getState().network.ws, { type: 'position', data: { playerId, position, rotation } });
+  sendMessage(_roomWs, { type: 'position', data: { playerId, position, rotation } });
 };
 
 export const sendThrow = (throwData: ThrowData): AppThunk => (_, getState) => {
@@ -552,7 +533,7 @@ export const sendThrow = (throwData: ThrowData): AppThunk => (_, getState) => {
   if (!playerId) {
     return;
   }
-  sendMessage(getState().network.ws, { type: 'throw', data: { playerId, throwData } });
+  sendMessage(_roomWs, { type: 'throw', data: { playerId, throwData } });
 };
 
 export const sendCatchAttempt = (throwData: ThrowData): AppThunk => (_, getState) => {
@@ -560,21 +541,21 @@ export const sendCatchAttempt = (throwData: ThrowData): AppThunk => (_, getState
   if (!trainerId) {
     return;
   }
-  sendMessage(getState().network.ws, { type: 'catch_attempt', data: { trainerId, throwData } });
+  sendMessage(_roomWs, { type: 'catch_attempt', data: { trainerId, throwData } });
 };
 
-export const sendSpeciesSelect = (speciesName: string): AppThunk => (_, getState) => {
-  sendMessage(getState().network.ws, { type: 'species_select', data: { speciesName } });
+export const sendSpeciesSelect = (speciesName: string): AppThunk => () => {
+  sendMessage(_roomWs, { type: 'species_select', data: { speciesName } });
 };
 
 export const sendPokeballCount = (count: number): AppThunk => (_, getState) => {
-  const { ws, playerId } = getState().network;
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+  if (!_roomWs || _roomWs.readyState !== WebSocket.OPEN) {
     return;
   }
 
   const normalizedCount = Math.max(0, Math.floor(count));
-  ws.send(JSON.stringify({ type: 'pokeball_count', playerId, data: { count: normalizedCount } }));
+  const playerId = getState().network.playerId;
+  _roomWs.send(JSON.stringify({ type: 'pokeball_count', playerId, data: { count: normalizedCount } }));
 };
 
 export const sendChat = (text: string): AppThunk => (_, getState) => {
@@ -583,8 +564,8 @@ export const sendChat = (text: string): AppThunk => (_, getState) => {
     return;
   }
 
-  const { ws, playerId, players } = getState().network;
-  sendMessage(ws, {
+  const { playerId, players } = getState().network;
+  sendMessage(_roomWs, {
     type: 'chat',
     data: {
       playerId,
@@ -596,23 +577,23 @@ export const sendChat = (text: string): AppThunk => (_, getState) => {
 };
 
 export const sendRoleSelect = (role: 'trainer' | 'pokemon'): AppThunk => (_, getState) => {
-  const { ws, playerId } = getState().network;
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+  if (!_roomWs || _roomWs.readyState !== WebSocket.OPEN) {
     return;
   }
-  ws.send(JSON.stringify({ type: 'select_role', playerId, data: { role } }));
+  const playerId = getState().network.playerId;
+  _roomWs.send(JSON.stringify({ type: 'select_role', playerId, data: { role } }));
 };
 
-export const startGame = (): AppThunk => (_, getState) => {
-  sendMessage(getState().network.ws, { type: 'start_game', data: {} });
+export const startGame = (): AppThunk => () => {
+  sendMessage(_roomWs, { type: 'start_game', data: {} });
 };
 
-export const addBot = (): AppThunk => (_, getState) => {
-  sendMessage(getState().network.ws, { type: 'add_bot', data: {} });
+export const addBot = (): AppThunk => () => {
+  sendMessage(_roomWs, { type: 'add_bot', data: {} });
 };
 
-export const removeBot = (botId: string): AppThunk => (_, getState) => {
-  sendMessage(getState().network.ws, { type: 'remove_bot', data: { botId } });
+export const removeBot = (botId: string): AppThunk => () => {
+  sendMessage(_roomWs, { type: 'remove_bot', data: { botId } });
 };
 
 export const networkActions = networkSlice.actions;

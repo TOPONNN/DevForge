@@ -445,6 +445,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
 .lobby-main-screen {
   width: 100%; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: transparent;
 }
 .main-title-sub-img {
   width: 30%;

@@ -180,15 +180,18 @@ export default function LobbyScreen() {
   // ── MAIN SCREEN ──────────────────────────────────────────────
   if (!isConnected && view === 'main') {
     return (
-      <section className="lobby-screen lobby-main-screen">
-        <img className="main-title-sub-img" src="/images/text_title_sub.png" alt="" />
-        <img className="main-title-img" src="/images/text_title_brown.png" alt="" />
-        <div className="main-guest-wrap">
-          <button type="button" className="lobby-guest-btn btn-animation" onClick={() => setView('nickname')}>
-            Guest
-          </button>
-        </div>
-      </section>
+      <>
+        <LobbyBackground3D />
+        <section className="lobby-screen lobby-main-screen">
+          <img className="main-title-sub-img" src="/images/text_title_sub.png" alt="" />
+          <img className="main-title-img" src="/images/text_title_brown.png" alt="" />
+          <div className="main-guest-wrap">
+            <button type="button" className="lobby-guest-btn btn-animation" onClick={() => setView('nickname')}>
+              Guest
+            </button>
+          </div>
+        </section>
+      </>
     );
   }
 
@@ -239,7 +242,7 @@ export default function LobbyScreen() {
                 className="channel-card"
                 onClick={() => handleSelectChannel(ch.id)}
               >
-                <p className="channel-card-name">{ch.id} 채널</p>
+                <p className="channel-card-name">{ch.name} ({ch.id}채널)</p>
                 <p className="channel-card-count">{channelCounts[ch.id] ?? 0}/100</p>
               </div>
             ))}
