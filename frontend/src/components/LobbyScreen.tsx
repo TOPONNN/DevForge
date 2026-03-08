@@ -195,6 +195,7 @@ export default function LobbyScreen() {
       <>
         <LobbyBackground3D />
         <section className="lobby-screen lobby-nickname-screen">
+          <button type="button" className="lobby-back-btn" onClick={() => setView('main')}>←</button>
           <div className="main-top-area nickname-top-area">
             <p className="main-subtitle">닉네임을 정하고 채널로 입장하세요</p>
             <h1 className="main-title">포켓몬 숨바꼭질</h1>
@@ -238,6 +239,7 @@ export default function LobbyScreen() {
       <>
         <LobbyBackground3D />
         <section className="lobby-screen lobby-channel-screen">
+          <button type="button" className="lobby-back-btn" onClick={() => setView('nickname')}>←</button>
           <div className="main-top-area channel-top-area">
             <img className="channel-title-img" src="/images/text_channel_select.png" alt="" />
           </div>
