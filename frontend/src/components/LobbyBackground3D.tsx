@@ -485,28 +485,211 @@ function GroundPlatform() {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Decorative ring on the ground
+   Decorative orbital rings — stunning glowing rings with
+   animated gradient, pulsing glow, and orbiting particles
    ───────────────────────────────────────────────────────── */
 function GroundRing() {
-  const ringRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const innerRingRef = useRef<THREE.ShaderMaterial>(null);
+  const midRingRef = useRef<THREE.ShaderMaterial>(null);
+  const outerRingRef = useRef<THREE.ShaderMaterial>(null);
+  const orbitParticlesRef = useRef<THREE.Points>(null);
 
-  useFrame(() => {
-    if (ringRef.current) {
-      ringRef.current.rotation.z += 0.002;
+  // Shared ring shader
+  const ringVertexShader = `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+
+  const ringFragmentShader = `
+    uniform float time;
+    uniform vec3 color1;
+    uniform vec3 color2;
+    uniform float pulseSpeed;
+    uniform float baseOpacity;
+    varying vec2 vUv;
+    void main() {
+      // Gradient along the ring circumference
+      float angle = atan(vUv.y - 0.5, vUv.x - 0.5);
+      float gradient = sin(angle * 3.0 + time * pulseSpeed) * 0.5 + 0.5;
+      vec3 color = mix(color1, color2, gradient);
+      // Pulsing glow
+      float pulse = sin(time * pulseSpeed * 0.7) * 0.3 + 0.7;
+      // Edge softness based on radial position
+      float radial = abs(vUv.y - 0.5) * 2.0;
+      float edgeFade = smoothstep(1.0, 0.3, radial);
+      float alpha = baseOpacity * pulse * edgeFade;
+      gl_FragColor = vec4(color * (1.0 + pulse * 0.5), alpha);
+    }
+  `;
+
+  // Orbit particles along rings
+  const orbitCount = 120;
+  const { positions: orbitPositions, colors: orbitColors, orbitData } = useMemo(() => {
+    const pos = new Float32Array(orbitCount * 3);
+    const col = new Float32Array(orbitCount * 3);
+    const data = new Float32Array(orbitCount * 3); // radius, speed, phase
+
+    const palette = [
+      new THREE.Color('#ffd60a'),
+      new THREE.Color('#ff9f43'),
+      new THREE.Color('#a0d2ff'),
+      new THREE.Color('#ffffff'),
+      new THREE.Color('#c084fc'),
+    ];
+
+    const radii = [7.2, 9.6, 12.5];
+    for (let i = 0; i < orbitCount; i++) {
+      const ringIdx = i < 40 ? 0 : i < 80 ? 1 : 2;
+      const radius = radii[ringIdx] + (Math.random() - 0.5) * 0.4;
+      const angle = (Math.PI * 2 * (i % 40)) / 40 + Math.random() * 0.1;
+      const speed = 0.15 + Math.random() * 0.25;
+
+      pos[i * 3] = Math.cos(angle) * radius;
+      pos[i * 3 + 1] = 0.05 + Math.random() * 0.15;
+      pos[i * 3 + 2] = Math.sin(angle) * radius;
+
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+
+
+      data[i * 3] = radius;
+      data[i * 3 + 1] = speed;
+      data[i * 3 + 2] = angle;
+    }
+    return { positions: pos, colors: col, orbitData: data };
+  }, []);
+
+  useFrame(({ clock }) => {
+    const time = clock.getElapsedTime();
+    if (groupRef.current) {
+      groupRef.current.rotation.y = time * 0.03;
+    }
+
+    // Update ring shader uniforms
+    if (innerRingRef.current) innerRingRef.current.uniforms.time.value = time;
+    if (midRingRef.current) midRingRef.current.uniforms.time.value = time;
+    if (outerRingRef.current) outerRingRef.current.uniforms.time.value = time;
+
+    // Animate orbit particles
+    if (orbitParticlesRef.current) {
+      const posAttr = orbitParticlesRef.current.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const arr = posAttr.array as Float32Array;
+      for (let i = 0; i < orbitCount; i++) {
+        const radius = orbitData[i * 3];
+        const speed = orbitData[i * 3 + 1];
+        const baseAngle = orbitData[i * 3 + 2];
+        const angle = baseAngle + time * speed;
+        arr[i * 3] = Math.cos(angle) * radius;
+        arr[i * 3 + 1] = 0.05 + Math.sin(time * 2 + baseAngle) * 0.08;
+        arr[i * 3 + 2] = Math.sin(angle) * radius;
+      }
+      posAttr.needsUpdate = true;
     }
   });
 
   return (
-    <>
-      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <ringGeometry args={[7.0, 7.4, 64]} />
-        <meshBasicMaterial color="#ffd60a" transparent opacity={0.15} side={THREE.DoubleSide} />
+    <group ref={groupRef}>
+      {/* Inner ring — golden glow */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+        <ringGeometry args={[6.8, 7.6, 128]} />
+        <shaderMaterial
+          ref={innerRingRef}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+          uniforms={{
+            time: { value: 0 },
+            color1: { value: new THREE.Color('#ffd60a') },
+            color2: { value: new THREE.Color('#ff6b2b') },
+            pulseSpeed: { value: 1.5 },
+            baseOpacity: { value: 0.35 },
+          }}
+          vertexShader={ringVertexShader}
+          fragmentShader={ringFragmentShader}
+        />
       </mesh>
+      {/* Inner ring glow halo */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}>
+        <ringGeometry args={[6.4, 8.0, 128]} />
+        <meshBasicMaterial color="#ffd60a" transparent opacity={0.06} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Mid ring — blue-purple gradient */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <ringGeometry args={[9.5, 9.7, 64]} />
-        <meshBasicMaterial color="#457b9d" transparent opacity={0.08} side={THREE.DoubleSide} />
+        <ringGeometry args={[9.2, 10.0, 128]} />
+        <shaderMaterial
+          ref={midRingRef}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+          uniforms={{
+            time: { value: 0 },
+            color1: { value: new THREE.Color('#457b9d') },
+            color2: { value: new THREE.Color('#a855f7') },
+            pulseSpeed: { value: 1.0 },
+            baseOpacity: { value: 0.25 },
+          }}
+          vertexShader={ringVertexShader}
+          fragmentShader={ringFragmentShader}
+        />
       </mesh>
-    </>
+      {/* Mid ring glow halo */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
+        <ringGeometry args={[8.8, 10.4, 128]} />
+        <meshBasicMaterial color="#457b9d" transparent opacity={0.04} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Outer ring — faint ethereal */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <ringGeometry args={[12.0, 13.0, 128]} />
+        <shaderMaterial
+          ref={outerRingRef}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+          uniforms={{
+            time: { value: 0 },
+            color1: { value: new THREE.Color('#c084fc') },
+            color2: { value: new THREE.Color('#60a5fa') },
+            pulseSpeed: { value: 0.7 },
+            baseOpacity: { value: 0.18 },
+          }}
+          vertexShader={ringVertexShader}
+          fragmentShader={ringFragmentShader}
+        />
+      </mesh>
+      {/* Outer ring glow halo */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
+        <ringGeometry args={[11.5, 13.5, 128]} />
+        <meshBasicMaterial color="#c084fc" transparent opacity={0.03} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Orbiting particles along the rings */}
+      <points ref={orbitParticlesRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[orbitPositions, 3]} count={orbitCount} />
+          <bufferAttribute attach="attributes-color" args={[orbitColors, 3]} count={orbitCount} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.12}
+          vertexColors
+          transparent
+          opacity={0.8}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          sizeAttenuation
+        />
+      </points>
+    </group>
   );
 }
 

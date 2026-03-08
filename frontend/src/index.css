@@ -489,9 +489,9 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .login-panel {
-  width: 60%; height: auto; max-height: 85%; overflow-y: auto;
-  padding: 3vw 2vw;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 60%; height: auto; max-height: 90%; overflow-y: auto;
+  padding: 2vw 2vw;
+  display: flex; flex-direction: column; align-items: center; gap: 1vw;
   border: 0.2vw solid white;
   border-radius: 0.6vw;
   background: rgba(255, 255, 255, 0.15);
@@ -504,7 +504,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   position: relative;
   width: 80%;
   display: flex; justify-content: space-around; align-items: center;
-  margin: 2vw 0;
+  margin: 0;
 }
 .login-nickname-label {
   width: 20%;
@@ -526,7 +526,7 @@ body.pointer-locked, body.pointer-locked * { cursor: none !important; }
   box-shadow: 0 0 0 0.15vw rgba(182, 123, 90, 0.3);
 }
 .login-submit-wrap {
-  display: flex; justify-content: center; width: 40%; margin-top: 2vw;
+  display: flex; justify-content: center; width: 40%; margin-top: 0;
 }
 
 /* ===== CHANNEL SELECT SCREEN ===== */
