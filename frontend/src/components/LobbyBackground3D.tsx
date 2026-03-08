@@ -513,20 +513,240 @@ function GroundRing() {
 /* ─────────────────────────────────────────────────────────
    Floating particles for atmosphere
    ───────────────────────────────────────────────────────── */
-function FloatingParticles() {
-  const count = 60;
+function Starfield() {
+  const count = 850;
   const pointsRef = useRef<THREE.Points>(null);
 
-  const { positions, speeds } = useMemo(() => {
+  const { positions, colors, sizes } = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const siz = new Float32Array(count);
+    const pha = new Float32Array(count);
+
+    const colorPalette = [
+      new THREE.Color('#ffffff'), // white
+      new THREE.Color('#d4e4ff'), // pale blue
+      new THREE.Color('#fff7d4'), // pale yellow
+      new THREE.Color('#ffe1ea'), // pale pink
+    ];
+
+    for (let i = 0; i < count; i++) {
+      // Spherical distribution around the center
+      const radius = 25 + Math.random() * 40;
+      const theta = 2 * Math.PI * Math.random();
+      const phi = Math.acos(2 * Math.random() - 1);
+      
+      pos[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = radius * Math.cos(phi);
+
+      const baseColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      col[i * 3] = baseColor.r;
+      col[i * 3 + 1] = baseColor.g;
+      col[i * 3 + 2] = baseColor.b;
+
+      siz[i] = 0.02 + Math.random() * 0.13;
+      pha[i] = Math.random() * Math.PI * 2;
+    }
+
+    return { positions: pos, colors: col, sizes: siz, phases: pha };
+  }, []);
+
+  const materialRef = useRef<THREE.PointsMaterial>(null);
+
+  useFrame(({ clock }) => {
+    if (!pointsRef.current) return;
+    const time = clock.getElapsedTime();
+    
+    // We can't easily animate per-vertex opacity with built-in PointsMaterial 
+    // without custom shaders, but we can slowly rotate the whole starfield 
+    // and let some stars move out of view to simulate twinkling,
+    // or we can use a custom shader. Let's use rotation.
+    pointsRef.current.rotation.y = time * 0.02;
+    pointsRef.current.rotation.x = time * 0.005;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          args={[positions, 3]}
+          count={count}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          args={[colors, 3]}
+          count={count}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          args={[sizes, 1]}
+          count={count}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        ref={materialRef}
+        size={0.15}
+        vertexColors
+        transparent
+        opacity={0.8}
+        sizeAttenuation
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
+function NebulaClouds() {
+  const groupRef = useRef<THREE.Group>(null);
+  const count = 5;
+
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    if (context) {
+      const gradient = context.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+      gradient.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, 256, 256);
+    }
+    return new THREE.CanvasTexture(canvas);
+  }, []);
+
+  const clouds = useMemo(() => {
+    const colors = ['#2a0845', '#0f1b4c', '#0d3b4f', '#3d1c02', '#2a0845'];
+    return Array.from({ length: count }).map((_, i) => ({
+      position: [
+        (Math.random() - 0.5) * 60,
+        (Math.random() - 0.2) * 30,
+        -20 - Math.random() * 30
+      ] as [number, number, number],
+      scale: 15 + Math.random() * 25,
+      color: colors[i],
+      rotationSpeed: (Math.random() - 0.5) * 0.1,
+      opacity: 0.15 + Math.random() * 0.2,
+    }));
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return;
+    const time = clock.getElapsedTime();
+    groupRef.current.children.forEach((child, i) => {
+      child.rotation.z = time * clouds[i].rotationSpeed;
+      child.position.x += Math.sin(time * 0.1 + i) * 0.01;
+      child.position.y += Math.cos(time * 0.1 + i) * 0.01;
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {clouds.map((cloud, i) => (
+        <mesh key={i} position={cloud.position}>
+          <planeGeometry args={[cloud.scale, cloud.scale]} />
+          <meshBasicMaterial
+            map={texture}
+            color={cloud.color}
+            transparent
+            opacity={cloud.opacity}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function ShootingStars() {
+  const groupRef = useRef<THREE.Group>(null);
+  const [active, setActive] = useState(false);
+
+  const lineObj = useMemo(() => {
+    const pts = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(5, -2, -10)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false });
+    return new THREE.Line(geo, mat);
+  }, []);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const scheduleNext = () => {
+      timeoutId = setTimeout(() => {
+        if (groupRef.current) {
+          groupRef.current.position.set(
+            (Math.random() - 0.5) * 40,
+            10 + Math.random() * 20,
+            -10 - Math.random() * 20
+          );
+          groupRef.current.rotation.z = Math.random() * Math.PI;
+          setActive(true);
+        }
+        setTimeout(() => {
+          setActive(false);
+          scheduleNext();
+        }, 1000);
+      }, 3000 + Math.random() * 5000);
+    };
+    scheduleNext();
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  useFrame(() => {
+    if (!active || !groupRef.current) {
+      (lineObj.material as THREE.LineBasicMaterial).opacity = 0;
+      return;
+    }
+    groupRef.current.position.x -= 0.5;
+    groupRef.current.position.y -= 0.2;
+    const mat = lineObj.material as THREE.LineBasicMaterial;
+    mat.opacity = Math.max(0, mat.opacity - 0.05);
+    if (mat.opacity === 0) mat.opacity = 1;
+  });
+
+  return (
+    <group ref={groupRef}>
+      <primitive object={lineObj} />
+    </group>
+  );
+}
+function FloatingParticles() {
+  const count = 150;
+  const pointsRef = useRef<THREE.Points>(null);
+
+  const { positions, speeds, colors, drifts } = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const spd = new Float32Array(count);
+    const col = new Float32Array(count * 3);
+    const drf = new Float32Array(count * 2);
+
+    const palette = [
+      new THREE.Color('#ffd60a'), // gold
+      new THREE.Color('#a0d2ff'), // pale blue
+      new THREE.Color('#ffffff'), // white
+    ];
+
     for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * 28;
       pos[i * 3 + 1] = Math.random() * 14;
       pos[i * 3 + 2] = (Math.random() - 0.5) * 28;
+      
       spd[i] = 0.2 + Math.random() * 0.5;
+      
+      drf[i * 2] = (Math.random() - 0.5) * 0.01;
+      drf[i * 2 + 1] = (Math.random() - 0.5) * 0.01;
+
+      const baseColor = palette[Math.floor(Math.random() * palette.length)];
+      col[i * 3] = baseColor.r;
+      col[i * 3 + 1] = baseColor.g;
+      col[i * 3 + 2] = baseColor.b;
     }
-    return { positions: pos, speeds: spd };
+    return { positions: pos, speeds: spd, colors: col, drifts: drf };
   }, []);
 
   useFrame(() => {
@@ -536,8 +756,15 @@ function FloatingParticles() {
     const arr = posAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
+      arr[i * 3] += drifts[i * 2];
       arr[i * 3 + 1] += speeds[i] * 0.004;
-      if (arr[i * 3 + 1] > 14) arr[i * 3 + 1] = 0;
+      arr[i * 3 + 2] += drifts[i * 2 + 1];
+
+      if (arr[i * 3 + 1] > 14) {
+        arr[i * 3 + 1] = 0;
+        arr[i * 3] = (Math.random() - 0.5) * 28;
+        arr[i * 3 + 2] = (Math.random() - 0.5) * 28;
+      }
     }
     posAttr.needsUpdate = true;
   });
@@ -550,17 +777,24 @@ function FloatingParticles() {
           args={[positions, 3]}
           count={count}
         />
+        <bufferAttribute
+          attach="attributes-color"
+          args={[colors, 3]}
+          count={count}
+        />
       </bufferGeometry>
       <pointsMaterial
-        color="#ffd60a"
-        size={0.06}
+        size={0.08}
+        vertexColors
         transparent
-        opacity={0.35}
+        opacity={0.4}
         sizeAttenuation
+        depthWrite={false}
       />
     </points>
   );
 }
+
 
 /* ─────────────────────────────────────────────────────────
    Scene background + fog
@@ -569,8 +803,8 @@ function SceneSetup() {
   const { scene } = useThree();
 
   useEffect(() => {
-    scene.background = new THREE.Color('#080418');
-    scene.fog = new THREE.Fog('#080418', 14, 35);
+    scene.background = new THREE.Color('#050215');
+    scene.fog = new THREE.Fog('#050215', 18, 45);
   }, [scene]);
 
   return null;
@@ -627,6 +861,9 @@ export default function LobbyBackground3D() {
         <GroundRing />
 
         {/* Particles */}
+        <Starfield />
+        <NebulaClouds />
+        <ShootingStars />
         <FloatingParticles />
 
         {/* Pokemon characters */}

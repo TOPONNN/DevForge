@@ -56,7 +56,7 @@ function PreviewModel({ role, speciesName }: RolePreview3DProps) {
     : `/models/${(speciesName ?? 'bulbasaur').toLowerCase()}.glb?v=2`;
 
   const { scene, animations } = useGLTF(modelPath);
-  const targetHeight = role === 'trainer' ? 1.95 : 1.65;
+  const targetHeight = role === 'trainer' ? 1.4 : 1.65;
   const rootRef = useRef<THREE.Group>(null);
 
   const { clonedScene, center, minY, scale } = useMemo(
@@ -152,7 +152,7 @@ export default function RolePreview3D({ role, speciesName }: RolePreview3DProps)
   return (
     <div className="role-preview-3d" aria-label="3d-role-preview">
       <Canvas
-        camera={{ position: [0, 1.35, 4.6], fov: 36 }}
+        camera={{ position: [0, 1.1, 5.0], fov: 36 }}
         gl={{ antialias: true, alpha: true }}
       >
         <hemisphereLight args={['#ffffff', '#d3e4ff', 1.05]} position={[0, 5, 0]} />
