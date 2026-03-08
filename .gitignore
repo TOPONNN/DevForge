@@ -58,6 +58,7 @@ jenkins_home/
 
 # ── AI agent workspace ────────────────────────
 .sisyphus/
+.opencode/
 
 # ── Test artifacts ────────────────────────────
 frontend/test-results/
